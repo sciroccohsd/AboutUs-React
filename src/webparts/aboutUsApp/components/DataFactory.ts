@@ -408,8 +408,6 @@ export default class DataFactory {
                     const templateValue = viewTemplate.settings[prop],
                         viewValue = existingView[prop];
 
-                    DataFactory.DEBUG("Views:", templateValue, viewValue);
-
                     if ( templateValue !== viewValue ) {
                         if  (viewUpdateInfo === null) viewUpdateInfo = {};
                         viewUpdateInfo[prop] = templateValue;

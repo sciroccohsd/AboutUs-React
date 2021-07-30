@@ -18,15 +18,12 @@ import {
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 
 import * as strings from 'AboutUsAppWebPartStrings';
-import AboutUsApp from './components/AboutUsApp';
-import { IAboutUsAppProps } from './components/IAboutUsAppProps';
+import AboutUsApp, { IAboutUsAppProps } from './components/AboutUsApp';
 
 import { SPComponentLoader } from "@microsoft/sp-loader";
 import DataFactory, { IListValidationResults } from './components/DataFactory';
 import CustomDialog from './components/CustomDialog';
-//import { trim } from '@microsoft/sp-lodash-subset';
 import { trim, escape } from 'lodash';
-import { Dialog } from 'office-ui-fabric-react';
 
 export interface IAboutUsAppWebPartProps {
     displayType: string;
@@ -36,11 +33,6 @@ export interface IAboutUsAppWebPartProps {
     orgchart_key: { [color: string]: string };
 }
 
-// enum STATUS {
-//     "init",
-//     "list_exists",
-//     "gotData"
-// }
 
 enum PROPERTYPANE_STATE {
     "init",
@@ -96,10 +88,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 await this.list_.test(this.properties.orgchart_key);
 
             } else {
-                // list doesn't exist. initialize setup
+                // list doesn't exist.
                 await this.updateRenderProperty("listName", "");
-
-                ///TODO: Show message
                 
             }
         });
