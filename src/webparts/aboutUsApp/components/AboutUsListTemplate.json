@@ -1,0 +1,452 @@
+{
+  "list": {
+    "Description": "**IMPORTANT**: Modifying this list directly may break the 'About Us' application.",
+    "Template": 100,
+    "EnableContentTypes": false,
+    "settings": {
+        "EnableAttachments": false,
+        "EnableFolderCreation": false,
+        "EnableVersioning": true,
+        "EnableMinorVersions": false,
+        "MajorVersionLimit": 100,
+        "OnQuickLaunch": false,
+        "NoCrawl": false
+    }
+  },
+
+  "fields": [{
+      "__metadata": {
+        "type": "SP.FieldChoice"
+      },
+      "DefaultValue": "HQ",
+      "Description": "Contact J11 if this information needs to be updated.",
+      "InternalName": "OrgType",
+      "Required": true,
+      "Title": "Organization Type",
+      "FieldTypeKind": 6,
+      "FillInChoice": false,
+      "Choices": {
+        "__metadata": { "type": "Collection(Edm.String)" },
+        "results": [
+          "HQ",
+          "Component",
+          "Task Force",
+          "LNO",
+          "Other"
+        ]
+      }
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldText"
+      },
+      "DefaultValue": null,
+      "Description": "Contact J11 if this information needs to be updated.",
+      "EnforceUniqueValues": true,
+      "Indexed": true,
+      "InternalName": "JCode",
+      "Required": true,
+      "Title": "J-Code",
+      "FieldTypeKind": 2,
+      "MaxLength": 25
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldText"
+      },
+      "DefaultValue": null,
+      "Description": "Contact J11 if this information needs to be updated.",
+      "InternalName": "Title",
+      "Required": true,
+      "Title": "Organization Name",
+      "FieldTypeKind": 2,
+      "MaxLength": 150
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "This text displays under the Organization's Name.\r\nLonger organization name, motto....\r\nTip: Spell out acronyms",
+      "InternalName": "Description",
+      "Required": false,
+      "Title": "Description",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 3,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldLookup"
+      },
+      "DefaultValue": null,
+      "Description": "Contact J11 if this information needs to be updated.",
+      "InternalName": "Parent",
+      "Required": false,
+      "Title": "Parent",
+      "FieldTypeKind": 7,
+      "AllowMultipleValues": false,
+      "IsRelationship": true,
+      "LookupField": "JCode",
+      "LookupList": "[THISLIST]",
+      "PrimaryFieldId": null,
+      "RelationshipDeleteBehavior": 0
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldNumber"
+      },
+      "DefaultValue": "0",
+      "Description": "Contact J11 if this information needs to be updated.",
+      "InternalName": "OrderBy",
+      "Required": true,
+      "Title": "Order By",
+      "FieldTypeKind": 9,
+      "MinimumValue": 0
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Mission statement, organizational goals.\r\nContact J11 if this information needs to be updated.",
+      "InternalName": "Mission",
+      "Required": false,
+      "Title": "Mission",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 3,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Contact J11 if this information needs to be updated.",
+      "InternalName": "Function",
+      "Required": false,
+      "Title": "Organization Functions",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "General information or description about this organization. Usually static information that doesn't change frequently.\n\nRemember, it should be useful for any user looking for information about this organization.",
+      "InternalName": "Content",
+      "Required": false,
+      "Title": "Main Content",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 12,
+      "RestrictedMode": true,
+      "RichText": true,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Secondary information. Usually static information that doesn't change frequently.",
+      "InternalName": "SubContent",
+      "Required": false,
+      "Title": "Sub-content",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": true,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Common and useful terms used to search for this organization and it's services.",
+      "InternalName": "Keywords",
+      "Required": false,
+      "Title": "Responsibilities, Tags and Keywords.",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Add organization bios. Hover to edit or delete bio. Drag-n-drop to reorder.\n\nPlace bio images and biographies in SharePoint and link them here.",
+      "InternalName": "Bios",
+      "Required": false,
+      "Title": "Organization Biographies",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Links to the organization's working sites and services.\n\nRemember, this information is for you, your team and any user looking for information about this organization.",
+      "InternalName": "Links",
+      "Required": false,
+      "Title": "Organization Links",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Link to your Standard Operating Procedure(s) (SOP).",
+      "InternalName": "SOP",
+      "Required": false,
+      "Title": "Organization SOP",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "InternalName": "Contacts",
+      "Required": false,
+      "Title": "Orgainization Contacts",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 6,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldText"
+      },
+      "DefaultValue": null,
+      "Description": "Building #, Floor #, Suite #, Room #",
+      "InternalName": "Location",
+      "Required": false,
+      "Title": "Office Location",
+      "FieldTypeKind": 2,
+      "MaxLength": 255
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "Example: USSTRATCOM #\r\n901 SAC BLVD STE ### \r\nOFFUTT AFB NE 68113-6600",
+      "InternalName": "Address",
+      "Required": false,
+      "Title": "Office  Mailing Address",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 4,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldText"
+      },
+      "DefaultValue": null,
+      "Description": "Local phone number with area code.",
+      "InternalName": "Phone",
+      "Required": false,
+      "Title": "Office Phone",
+      "FieldTypeKind": 2,
+      "MaxLength": 30
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldText"
+      },
+      "DefaultValue": null,
+      "InternalName": "DSN",
+      "Required": false,
+      "Title": "Office DSN",
+      "FieldTypeKind": 2,
+      "MaxLength": 18
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldText"
+      },
+      "DefaultValue": null,
+      "Description": "FAX with area code.",
+      "InternalName": "FAX",
+      "Required": false,
+      "Title": "Office FAX",
+      "FieldTypeKind": 2,
+      "MaxLength": 50
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiLineText"
+      },
+      "DefaultValue": null,
+      "Description": "FIRST MI. LASTNAME\r\nRANK, DEPT\r\nPosition/Title",
+      "InternalName": "SignatureBlock",
+      "Required": false,
+      "Title": "Signature Block(s)",
+      "FieldTypeKind": 3,
+      "AllowHyperlink": false,
+      "AppendOnly": false,
+      "NumberOfLines": 9,
+      "RestrictedMode": true,
+      "RichText": false,
+      "WikiLinking": false
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldUrl"
+      },
+      "DefaultValue": null,
+      "Description": "PNG, JPG or JPEG. Preferably with transparent background. Optimal size: 100px by 100px\r\nTransparent background.\r\nPlace logo in SharePoint and link them here.",
+      "InternalName": "Logo",
+      "Required": false,
+      "Title": "(Optional) Organization Logo",
+      "FieldTypeKind": 11,
+      "DisplayFormat": 1
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldMultiChoice"
+      },
+      "DefaultValue": ";#About-Us Page;#Org-Chart",
+      "Description": "Select how you want to display this information. If nothing is selected, this item will exists but will not display anywhere.",
+      "InternalName": "DisplayType",
+      "Required": true,
+      "Title": "Display this organization as",
+      "FieldTypeKind": 15,
+      "FillInChoice": false,
+      "Choices": {
+        "__metadata": { "type": "Collection(Edm.String)" },
+        "results": [
+          "About-Us Page",
+          "Org-Chart"
+        ]
+      }
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldChoice"
+      },
+      "DefaultValue": "Blue (Default)",
+      "Description": "When/if displaying this on the org chart, select the background color.",
+      "InternalName": "OrgChartColor",
+      "Required": false,
+      "Title": "Org Chart Color",
+      "FieldTypeKind": 6,
+      "FillInChoice": false,
+      "Choices": {
+        "__metadata": { "type": "Collection(Edm.String)" },
+        "results": [
+          "Blue (Default)",
+          "Purple (Positional. i.e.: Deputy position)",
+          "Red",
+          "Dark Blue",
+          "Green",
+          "Brown",
+          "Grey"
+        ]
+      }
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldUser"
+      },
+      "DefaultValue": null,
+      "Description": "Content Managers must be added to each page they will manage.\r\nPlus, added to the AboutContent_Managers permission group. Contact the Webmasters to be added/removed from this permission group.",
+      "InternalName": "ContentManagers",
+      "Required": false,
+      "Title": "Content Managers",
+      "FieldTypeKind": 20,
+      "AllowMultipleValues": true
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldDateTime"
+      },
+      "DefaultValue": null,
+      "InternalName": "Validated",
+      "Required": false,
+      "Title": "Validated",
+      "FieldTypeKind": 4,
+      "DateTimeCalendarType": 0,
+      "DisplayFormat": 1,
+      "FriendlyDisplayFormat": 1
+    },
+    {
+      "__metadata": {
+        "type": "SP.FieldUser"
+      },
+      "DefaultValue": null,
+      "InternalName": "ValidatedBy",
+      "Required": false,
+      "Title": "Validated By",
+      "FieldTypeKind": 20,
+      "AllowMultipleValues": false
+    }
+  ],
+
+  "views": [
+    {
+      "Title": "All Items",
+      "PersonalView": false,
+      "settings": {
+        "RowLimit": 1000,
+        "ViewQuery": "<GroupBy Collapse=\"TRUE\" GroupLimit=\"300\"><FieldRef Name=\"OrgType\" /><FieldRef Name=\"Parent\" /></GroupBy><OrderBy><FieldRef Name=\"JCode\" /><FieldRef Name=\"OrderBy\" /></OrderBy>"
+      },
+      "ViewFields": [
+        "JCode",
+        "LinkTitle",
+        "Mission",
+        "Function"
+      ]
+    }
+  ]
+}

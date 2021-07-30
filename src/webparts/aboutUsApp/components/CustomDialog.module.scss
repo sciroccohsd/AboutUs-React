@@ -1,0 +1,196 @@
+@import '~@microsoft/sp-office-ui-fabric-core/dist/sass/SPFabricCore.scss';
+
+$font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
+
+.customDialog {
+    flex-grow: 1;
+    overflow-y: hidden;
+
+    .header {
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+
+        .title {
+            font-family: $font-family;
+            -webkit-font-smoothing: antialiased;
+            font-size: 20px;
+            font-weight: 600;
+            color: "[theme: black, default: #000000]";
+            margin: 0px;
+            min-height: "[theme: xLargeFontSize, default: 20px]";
+            padding: 16px 46px 20px 24px;
+            line-height: normal;
+        }
+        .topButtonWrapper {
+            display: flex;
+            flex-flow: row nowrap;
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            padding: 15px 15px 0px 0px;
+
+            .topButton {
+                background-color: transparent;
+                border: 0;
+                color:"[theme: themeDark, default: #5d5958]";
+                font-size: "[theme: mediumFontSize, default: 14px]";
+                cursor: pointer;
+                margin: auto;
+                text-align: center;
+                vertical-align: middle;
+                height: 16px;
+                width: 16px;
+            }
+            .topButton:hover {
+                color: "[theme:actionLinkHovered, default:red]";
+            }
+        }
+    }
+
+    .inner {
+        padding: 0px 24px 24px;
+
+        .innerContent {
+            position: relative;
+            width: 100%;
+            
+            .subText {
+                font-family: $font-family;
+                -webkit-font-smoothing: antialiased;
+                font-size: 14px;
+                font-weight: 400;
+                margin: 0px 0px 24px;
+                color: "[theme: black, default: #000000]";
+                line-height: 1.5;
+                overflow-wrap: break-word;
+                white-space: pre;
+            }
+
+            .form {
+                font-family: $font-family;
+                -webkit-font-smoothing: antialiased;
+                font-size: "[theme: mediumFontSize, default: 14px]";
+                font-weight: 400;
+                box-shadow: none;
+                margin: 0px;
+                padding: 0px;
+                box-sizing: border-box;
+                position: relative;
+
+                .fieldWrapper {
+                    display: block;
+                    position: relative;
+                
+                    .fieldLabel {
+                        display: block;
+                        font-size: "[theme: smallFontSize, default: 12px]";
+                        margin: 3px 0;
+                        white-space: pre;
+                    }
+
+                    .fieldDescription {
+                        font-size: "[theme: smallFontSize, default: 12px]";
+                        color: "[theme: bodySubtext, default: #605e5c]";
+                        font-style: italic;
+                        margin: 3px 0;
+                        white-space: pre;
+                    }
+
+                    .fieldError {
+                        display: block;
+                        color: "[theme: errorText, default: #a4262c]";
+                        font-size: "[theme: smallFontSize, default: 12px]";
+                        font-style: italic;
+                        margin: 3px 0;
+                        white-space: pre;
+                    }
+
+                    .field {
+                        font-family: $font-family;
+                        -webkit-font-smoothing: antialiased;
+                        font-size: "[theme: mediumFontSize, default: 14px]";
+                        font-weight: 400;
+                        box-shadow: none;
+                        margin: 0px;
+                        padding: 5px;
+                        box-sizing: border-box;
+                        border-radius: 0px;
+                        border: none;
+                        background: none transparent;
+                        color: "[theme: neutralPrimary, default: #323130]";
+                        height: 100%;
+                        width: 100%;
+                        min-width: 0px;
+                        text-overflow: ellipsis;
+                        outline: 0px;
+                        border: 1px solid;
+                        border-color: "[theme: inputBorder, default: #605e5c]";
+                    }
+                }
+            }
+        }
+
+        .actions {
+            position: relative;
+            width: 100%;
+            min-height: 24px;
+            line-height: 24px;
+            margin: 16px 0px 0px;
+            font-size: 0px;
+
+            .actionsRight {
+                text-align: right;
+                margin-right: -4px;
+                font-size: 0px;
+            }
+
+            .action {
+                margin: 0px 4px;
+
+                .buttonRoot {
+                    outline: transparent;
+                    position: relative;
+                    font-family: $font-family;
+                    -webkit-font-smoothing: antialiased;
+                    font-size: 14px;
+                    font-weight: 400;
+                    box-sizing: border-box;
+                    border: 1px solid rgb(58, 150, 221);
+                    display: inline-block;
+                    text-decoration: none;
+                    text-align: center;
+                    cursor: pointer;
+                    padding: 0px 16px;
+                    border-radius: 2px;
+                    min-width: 80px;
+                    height: 32px;
+                    background-color:  rgb(58, 150, 221);
+                    color: rgb(24, 37, 52);
+                    user-select: none;
+
+                    .buttonContainer {
+                        display: flex;
+                        height: 100%;
+                        flex-wrap: nowrap;
+                        justify-content: center;
+                        align-items: center;
+
+                        .buttonLabelContainer {
+                            flex-grow: 1;
+                            display: block;
+
+                            .buttonLabel {
+                                margin: 0px 4px;
+                                line-height: 100%;
+                                display: block;
+                                font-weight: 600;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
