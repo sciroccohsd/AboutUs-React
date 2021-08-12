@@ -25,11 +25,12 @@
     "description": { "default": "Display organizational information for hierachical structures. Display as a page, accordian, or organizational chart." },
     "officeFabricIconFontName": "Storyboard",
     "properties": {
-      "displayType": "Page",
+      "displayType": "page",
       "displayTypeOptions": [
-        {"key": "Page", "text": "About-Us Page"},
-        {"key": "OrgChart", "text": "Org Chart"},
-        {"key": "Explorer", "text": "Explorer View"}
+        {"key": "page", "text": "About-Us Page"},
+        {"key": "orgchart", "text": "Org Chart"},
+        {"key": "accordian", "text": "Accordian View"},
+        {"Key": "phone", "text": "Phone Directory"}
       ],
       "listName": "",
       "ppListName_dropdown": "",

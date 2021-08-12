@@ -71,4 +71,91 @@
       display: inline-block;
     }
   }
+
+
+  .form {
+    background-color: "[theme: BackgroundOverlay, default:rgba(255, 255, 255, 0.85)]";
+    border-color: "[theme: dialogBorder, default:#f3f2f1]";
+    border-radius: 0;
+    border-width: 1px;
+    font-size: 12pt;
+    margin: auto;
+    position: relative;
+    text-align: center;
+
+    .description {
+      color: "[theme: inputPlaceholderText, default:#605e5c]";
+      font-size: 11px;
+    }
+
+    .fieldWrapper {
+      font-size: inherit;
+      padding: 5px 10px;
+      position: relative;
+      text-align: initial;
+
+      .label {
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 400;
+        color: "[theme: inputText, default:#323130]";
+        box-sizing: border-box;
+        box-shadow: none;
+        margin: 0px;
+        display: block;
+        padding: 5px 0px;
+        overflow-wrap: break-word;
+      }
+
+      .required::after {
+        content: " *";
+        color: "[theme: redDark, default:#a4262c]";
+        padding-right: 12px;
+      }
+
+      .richTextWrapper {
+        background-color: "[theme: inputBackground, default:#ffffff]";
+        border-color: "[theme: inputBorder, default:#605e5c]";
+        border-width: 1px;
+        border-style: solid;
+        color: "[theme: BodyText, default:#323130]";
+
+        &:hover,
+        &:focus,
+        &:active {
+          border-color: "[theme: inputBorderHovered, default:##323130]";
+        }
+      }
+      .richTextWrapperError {
+        border-color: "[theme: errorText, default:#a4262c]" !important;
+      }
+      .richtext {
+        font-size: "[theme: mediumFontSize, default:14px]";
+
+        div.quill {
+          font-size: inherit !important;
+
+          div.ql-editor {
+            font-size: inherit !important;
+          }
+
+          div.ql-blank::before {
+            font-size: inherit !important;
+          }
+        }
+      }
+
+      .errorMessage {
+        font-family: inherit;
+        -webkit-font-smoothing: antialiased;
+        font-size: 12px;
+        font-weight: 400;
+        color: "[theme: redDark, default:#a4262c]";
+        margin: 0px;
+        padding-top: 5px;
+        display: flex;
+        align-items: center;
+      }
+    }
+  }
 }

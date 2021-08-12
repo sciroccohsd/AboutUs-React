@@ -25,6 +25,12 @@ import DataFactory, { IListValidationResults } from './components/DataFactory';
 import CustomDialog from './components/CustomDialog';
 import { trim, escape } from 'lodash';
 
+// declare global {
+//     interface Window {
+//         formValue?: any;
+//     }
+// }
+
 export interface IAboutUsAppWebPartProps {
     displayType: string;
     displayTypeOptions: Partial<IPropertyPaneDropdownOption[]>;
@@ -32,7 +38,6 @@ export interface IAboutUsAppWebPartProps {
     ppListName_dropdown: string | number;
     orgchart_key: { [color: string]: string };
 }
-
 
 enum PROPERTYPANE_STATE {
     "init",
@@ -64,12 +69,17 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
     public constructor() {
         super();
 
+
         //SPComponentLoader.loadCss('//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css');
     }
 
     protected async onInit(): Promise<void> {
-        return await super.onInit().then(async _ => {
-            // create the 'About-Us' list (datafactory)
+        return await super.onInit().then(async () => {
+            // web part context is only set for the base class. 
+            // send the context to the other classes that need them.
+            AboutUsApp.ctx = this.context;
+
+            // create the 'About-Us' list (datafactory), SP-PnP requires the web part context.
             this.list_ = new DataFactory(this.context);
 
             // check if list exists; may have gotten deleted, renamed, or never initialized
@@ -85,7 +95,10 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                         `Check to see if the list exists and you have the proper permissions.`);
                 }
 
-                await this.list_.test(this.properties.orgchart_key);
+                await this.list_.test("this.list_:", this.list_);
+                this.list_.fields.forEach( 
+                    (field, i) => 
+                        console.info(`fields[${i}]: ${field.Title} (${field.InternalName}): ${field.TypeAsString} (${field["odata.type"]})`, field));
 
             } else {
                 // list doesn't exist.
@@ -94,6 +107,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             }
         });
     }
+
     //#endregion
 
     //#region RENDER
@@ -113,6 +127,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         ReactDom.unmountComponentAtNode(this.domElement);
     }
 
+    // @ts-ignore
     protected get dataVersion(): Version {
         return Version.parse('1.0');
     }

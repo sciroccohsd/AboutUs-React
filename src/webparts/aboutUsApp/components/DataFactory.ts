@@ -1,17 +1,26 @@
+import { WebPartContext } from "@microsoft/sp-webpart-base";
+import { find, trim } from "lodash";
+
 // https://pnp.github.io/pnpjs
 //> npm install --save @pnp/sp @pnp/graph
 import { sp } from "@pnp/sp";
 import "@pnp/sp/webs";
-import { IList, ILists, IListInfo, IListEnsureResult } from "@pnp/sp/lists";
 import "@pnp/sp/lists";
-import { IField, IFieldAddResult, IFieldCreationProperties, IFieldInfo, IFieldUpdateResult } from "@pnp/sp/fields";
 import "@pnp/sp/fields";
-import { IView, IViewInfo, IViewAddResult, IViewUpdateResult, IViewFields, IViews} from "@pnp/sp/views";
 import "@pnp/sp/views";
-import { IItem, IItems, IItemAddResult, IItemUpdateResult } from "@pnp/sp/items";
 import "@pnp/sp/items";
-import { WebPartContext } from "@microsoft/sp-webpart-base";
-import { find, trim, escape } from "lodash";
+import "@pnp/sp/forms";
+import { IList, IListEnsureResult, IListInfo } from "@pnp/sp/lists";
+import { IFieldAddResult, IFieldInfo, IFieldUpdateResult } from "@pnp/sp/fields";
+import { IViewAddResult, IViewInfo, IViews, IViewUpdateResult } from "@pnp/sp/views";
+import { IForms } from "@pnp/sp/forms";
+
+export interface IDataFactoryFieldInfo extends IFieldInfo {
+    MaxLength?: number;
+    Choices?: string[];
+    NumberOfLines?: number;
+    RichText?: boolean;
+}
 
 export interface IAboutUsListViewTemplate {
     "Title": string;
@@ -35,7 +44,7 @@ export interface IListValidationResults {
 }
 interface IFieldStatusResults {
     "exists": boolean;
-    "update": Partial<IFieldInfo>;
+    "update": Partial<IDataFactoryFieldInfo>;
 }
 
 //> npm install --save debug
@@ -94,8 +103,8 @@ export default class DataFactory {
     }
 
     // fields
-    private fields_: IFieldInfo[] = [];
-    public get fields() : IFieldInfo[] {
+    private fields_: IDataFactoryFieldInfo[] = [];
+    public get fields() : IDataFactoryFieldInfo[] {
         return this.fields_;
     }
 
@@ -104,6 +113,13 @@ export default class DataFactory {
     public get views() : IViews {
         return this.views_;
     }
+
+    // forms
+    private forms_: IForms = null;
+    public get forms() : IForms {
+        return this.forms_;
+    }
+    
         
     // exists
     private exists_: boolean = false;
@@ -156,6 +172,9 @@ export default class DataFactory {
         // ensure views after the list and fields have been created/updated
         await this.ensureViews();
 
+        // get form: display, edit, new
+        this.forms_ = await this.getAllForms();
+
         // get list properties
         this.exists_ = true;
         this.properties_ = await this.api.expand("DefaultView", "Forms", "RoleAssignments", "RootFolder").get({ "headers": { "Accept": "application/json;odata=verbose"} });
@@ -166,13 +185,13 @@ export default class DataFactory {
     /**
      * Check if fields exists. Tries to update or create missing fields.
      */
-    public async ensureFields(): Promise<IFieldInfo[]> {
+    public async ensureFields(): Promise<IDataFactoryFieldInfo[]> {
 
         // list name must be set
         if (this.title === null || this.title === "") return;
 
         // get existing fields from list
-        const existingFields: IFieldInfo[] = await this.getAllFields();
+        const existingFields: IDataFactoryFieldInfo[] = await this.getAllFields();
 
         // loop thru each field. don't use array.forEach, it doesn't honor 'await'.
         for (let i = 0; i < this.listTemplate.fields.length; i++) {
@@ -200,7 +219,7 @@ export default class DataFactory {
      * Request all list fields.  Filters out non-deletable fields.  Includes 'Title' field
      * @returns SP PnP array of field information
      */
-    private async getAllFields(): Promise<IFieldInfo[]> {
+    private async getAllFields(): Promise<IDataFactoryFieldInfo[]> {
         return this.api.fields
             .filter("(CanBeDeleted eq true) or (InternalName eq 'Title')")
             .get();
@@ -268,9 +287,9 @@ export default class DataFactory {
      * @param field Field properties. Similar JSON as SP REST response.
      * @returns Promise
      */
-    public async createField(field: any): Promise<Partial<IFieldInfo>> {
+    public async createField(field: any): Promise<Partial<IDataFactoryFieldInfo>> {
         let addResult: IFieldAddResult;
-        let newFieldInfo: Partial<IFieldInfo> = null;
+        let newFieldInfo: Partial<IDataFactoryFieldInfo> = null;
 
         // temporarily set the field's title the same as the InternalName. We will have to update the title afterwards.
         const fieldTitle = field.Title || field.InternalName;
@@ -354,7 +373,7 @@ export default class DataFactory {
      * Update's SP field. Requires field Id (GUID)
      * @param field Field properties. Similar JSON as SP REST response. Must include: __metadata.type & Id
      */
-    public async updateField(field: Partial<IFieldInfo>): Promise<IFieldUpdateResult> {
+    public async updateField(field: Partial<IDataFactoryFieldInfo>): Promise<IFieldUpdateResult> {
         let updateResult: IFieldUpdateResult = null;
 
         try {
@@ -517,6 +536,16 @@ export default class DataFactory {
     }
     //#endregion
 
+    //#region FORMS
+    /**
+     * Get all the list forms.
+     * @returns List of IFormInfo for Display, Edit & New forms.
+     */
+    private async getAllForms(): Promise<IForms> {
+        return this.api.forms.get();
+    }
+    //#endregion
+
     //#region ITEMS
     //#endregion
 
@@ -613,7 +642,7 @@ export default class DataFactory {
         filter: string = "(BaseTemplate eq 100) and (Hidden eq false)"
         ): Promise<any> {
 
-        const LISTS: ILists = sp.web.lists;
+        const LISTS = sp.web.lists;
 
         const DATA = await LISTS
             .select.apply(LISTS, select)
@@ -678,7 +707,7 @@ export default class DataFactory {
     public static DEBUG(...args: any[]) {
         // is an error message, if first argument is a string and contains "error" string.
         const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-        args = ["(DataFactory)"].concat(args);
+        args = ["(About-Us DataFactory.ts)"].concat(args);
 
         if (window && window.console) {
             if (isError && console.error) {

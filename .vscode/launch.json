@@ -25,7 +25,7 @@
       "name": "Hosted workbench",
       "type": "pwa-msedge",
       "request": "launch",
-      "url": "https://stratj622e5.sharepoint.com/sites/J622Team/_layouts/workbench.aspx",
+      "url": "https://stratj622e5.sharepoint.com/sites/J622Team/_layouts/workbench.aspx?form=new",
       "webRoot": "${workspaceRoot}",
       "sourceMaps": true,
       "sourceMapPathOverrides": {
