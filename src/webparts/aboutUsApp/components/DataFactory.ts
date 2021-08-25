@@ -20,6 +20,31 @@ export interface IDataFactoryFieldInfo extends IFieldInfo {
     Choices?: string[];
     NumberOfLines?: number;
     RichText?: boolean;
+    MaximumValue?: number;
+    MinimumValue?: number;
+    LookupField?: string;
+    LookupList?: string;
+    LookupWebId?: string;
+    DependentLookupInternalNames?: string[];
+    DateTimeCalendarType?: number;
+    DisplayFormat?: number;
+    FriendlyDisplayFormat?: number;
+    AllowMultipleValues?: boolean;
+    SelectionGroup?: number;
+    SelectionMode?: number;
+}
+
+export interface IFieldUrlValue {
+    __metadata: {type: "SP.FieldUrlValue"};
+    Description: string;
+    Url: string;
+}
+
+export interface IUserInfoItem {
+    __metadata: {type: "SP.Data.UserInfoItem", id?: string};
+    ID: number;
+    Name?: string;
+    Title?: string;
 }
 
 export interface IAboutUsListViewTemplate {

@@ -88,6 +88,10 @@
       font-size: 11px;
     }
 
+    ::placeholder {
+      color: "[theme: disabledText, default:#a19f9d]" !important;
+    }
+
     .fieldWrapper {
       font-size: inherit;
       padding: 5px 10px;
@@ -132,14 +136,18 @@
       .richtext {
         font-size: "[theme: mediumFontSize, default:14px]";
 
-        div.quill {
+        // @PnP/SPFX-Controls-React RichText div outer wrapper
+        :global(.quill) {
           font-size: inherit !important;
 
-          div.ql-editor {
+          // @PnP/SPFX-Controls-React RichText content container
+          :global(.ql-editor) {
             font-size: inherit !important;
           }
 
-          div.ql-blank::before {
+          // @PnP/SPFX-Controls-React RichText placeholder
+          :global(.ql-blank::before) {
+            color: "[theme: disabledText, default:#a19f9d]";
             font-size: inherit !important;
           }
         }
