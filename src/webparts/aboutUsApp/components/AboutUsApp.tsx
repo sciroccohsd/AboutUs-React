@@ -9,6 +9,7 @@ import DataFactory from './DataFactory';
 import CustomDialog from './CustomDialog';
 import * as FormControls from './FormControls';
 import AboutUsForm, { IAboutUsFormProps } from "./AboutUsForm";
+import AboutUsForms from './AboutUsForm';
 
 export interface IAboutUsAppProps {
     displayType: string;
@@ -49,7 +50,7 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         };
         /* Observations on this.setState
            1. Doesn't update objects unless it is reassigned (e.g.: Object.assign({}, this.state.###)).
-           2. this.state cannot be called directly after setting it. It requires a an extra moment to update. i.g.: setTimeout(()=>{}, 0);
+           2. this.state cannot be called directly after setting it. It requires an extra moment to update. i.g.: setTimeout(()=>{}, 0);
            3. setState callback (2nd argument), gets called but state may not be updated. 
         */
     }
@@ -60,20 +61,22 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         return (
             <div className={styles.aboutUsApp}>
                 <div className={styles.container}>
-                    <div className={styles.row}>
-                        <div className={styles.column}>
-                            <span className={styles.title}>List: { this.props.list.title }</span>
-                            <p className={styles.subTitle}>Mode: { this.state.displayType }</p>
-                            <p className={styles.subTitle}>JCode: { this.state.jcode }</p>
+                    { !this.props.list.exists ? this.createConfigureForm() : 
+                        <div>
+                            {/* { this.state.displayType === "page" ? this.createPageDisplay() : null } */}
+                            {/* { this.state.displayType === "orgchart" ? this.createOrgChartDisplay() : null } */}
+                            {/* { this.state.displayType === "accordian" ? this.createAccordianDisplay() : null } */}
+                            {/* { this.state.displayType === "phone" ? this.createPhoneDisplay() : null } */}
+                            { this.state.displayType === "new" ? React.createElement(AboutUsForm, {
+                                    ctx: AboutUsApp.ctx,
+                                    list: this.props.list,
+                                    form: "new",
+                                    history: History,
+                                }) : null 
+                            }
+                            {/* { this.state.displayType === "edit" ? this.createEditForm() : null } */}
                         </div>
-                    </div>
-                    { !this.props.list.exists ? this.createConfigureForm() : null }
-                    {/* { this.state.displayType === "page" ? this.createPageDisplay() : null } */}
-                    {/* { this.state.displayType === "orgchart" ? this.createOrgChartDisplay() : null } */}
-                    {/* { this.state.displayType === "accordian" ? this.createAccordianDisplay() : null } */}
-                    {/* { this.state.displayType === "phone" ? this.createPhoneDisplay() : null } */}
-                    { this.state.displayType === "new" ? <AboutUsForm ctx={ AboutUsApp.ctx } list={ this.props.list } form="new" /> : null }
-                    {/* { this.state.displayType === "edit" ? this.createEditForm() : null } */}
+                    }
                 </div>
             </div>
         );
@@ -83,7 +86,9 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
     private createConfigureForm(): React.ReactElement {
         return <FormControls.ShowConfigureWebPart
                 onConfigure={ AboutUsApp.ctx.propertyPane.open }
-                description="'About-Us' app requires a content list. Select or create one from the settings pane. Click 'Configure' to edit the web part's properties."
+                iconText="Configure About-Us Web Part"
+                description="'The About-Us app requires a content list. Open the settings pane to create or select a content list."
+                buttonLabel="Settings"
             />;
     }
     //#endregion

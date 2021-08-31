@@ -22,8 +22,14 @@ import { ComboBoxListItemPicker,
     IPlaceholderProps, 
     ListItemPicker } from '@pnp/spfx-controls-react';
 import { IRichTextProps, RichText } from '@pnp/spfx-controls-react/lib/RichText';
-import { PeoplePicker, PrincipalType, IPeoplePickerProps } from "@pnp/spfx-controls-react/lib/PeoplePicker";
+import { PeoplePicker, PrincipalType, IPeoplePickerProps } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+import { Toolbar } from '@pnp/spfx-controls-react/lib/Toolbar';
 import { IFieldUrlValue } from './DataFactory';
+
+export default ReactControls;
+export * from '@pnp/spfx-controls-react/lib/RichText';
+export * from '@pnp/spfx-controls-react/lib/PeoplePicker';
+export * from '@pnp/spfx-controls-react/lib/Toolbar';
 
 
 //#region WEB PART PLACEHOLDER: "Configure your web part"
@@ -178,7 +184,7 @@ export class UrlControl extends React.Component<IUrlControlProps> {
             textProps.label = `Text for: ${ this.props.label || "Url"}`;
             textProps.defaultValue = textValue;
             textProps.description = this.props.description;
-            textProps.placeholder = "(Optional) Text for the URL";
+            textProps.placeholder = "(Optional) Alternative text";
             textProps.errorMessage = this.props.errorMessage;
             textProps.onChange = onChange;
         } else {

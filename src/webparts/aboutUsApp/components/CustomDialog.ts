@@ -115,13 +115,13 @@ export default class CustomDialog extends BaseDialog {
      * // do stuff...
      * modalMsg.close();
      */
-         public static modalMsg(msg: string, title: string = "Message"): CustomDialog {
-            const eDialog = new CustomDialog(title);
-    
-            eDialog.AddMessage(msg).show();
+    public static modalMsg(msg: string, title: string = "Message"): CustomDialog {
+        const eDialog = new CustomDialog(title);
 
-            return eDialog;
-        }
+        eDialog.AddMessage(msg).show();
+
+        return eDialog;
+    }
 
     /** Show custom SP prompt (text response dialog).
      * @param msg Text to display.
@@ -136,10 +136,10 @@ export default class CustomDialog extends BaseDialog {
     public static async prompt(msg: string, title: string = "Prompt", opt: {} = {}, showClose: boolean = false): Promise<string> {
         // ensure options
         if (typeof opt !== "object" || opt === null) opt = {};
-        if (!Object.prototype.hasOwnProperty.call(opt, "value")) opt["value"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "label")) opt["label"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "description")) opt["description"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "error")) opt["error"] = "";
+        if (!("value" in opt)) opt["value"] = "";
+        if (!("label" in opt)) opt["label"] = "";
+        if (!("description" in opt)) opt["description"] = "";
+        if (!("error" in opt)) opt["error"] = "";
         
         let value: string = null;
         const dialog = new CustomDialog(title, showClose),
@@ -171,8 +171,8 @@ export default class CustomDialog extends BaseDialog {
     public static async confirm(msg: string, title: string = "Confirm?", text: {"yes": string, "no": string}, showClose: boolean = false): Promise<boolean> {
         // ensure yes/no text
         if (typeof text !== "object" || text === null) text = {"yes": null, "no": null};
-        if (!Object.prototype.hasOwnProperty.call(text, "yes") || typeof text["yes"] !== "string") text["yes"] = "Yes";
-        if (!Object.prototype.hasOwnProperty.call(text, "no") || typeof text["no"] !== "string") text["no"] = "No";
+        if (!("yes" in text) || typeof text["yes"] !== "string") text["yes"] = "Yes";
+        if (!("no" in text) || typeof text["no"] !== "string") text["no"] = "No";
         
         let value: boolean = null;
         const dialog = new CustomDialog(title, showClose);
@@ -305,12 +305,12 @@ export default class CustomDialog extends BaseDialog {
     private CreateTextField(label: string = "", id: string, opt: {} = {}): Partial<ICustomDialogField> {
         // ensure options
         if (typeof opt !== "object" || opt === null) opt = {};
-        if (!Object.prototype.hasOwnProperty.call(opt, "name")) opt["name"] = id;
-        if (!Object.prototype.hasOwnProperty.call(opt, "value")) opt["value"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "hint")) opt["hint"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "error")) opt["error"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "description")) opt["description"] = "";
-        if (!Object.prototype.hasOwnProperty.call(opt, "class")) opt["class"] = "";
+        if (!("name" in opt)) opt["name"] = id;
+        if (!("value" in opt)) opt["value"] = "";
+        if (!("hint" in opt)) opt["hint"] = "";
+        if (!("error" in opt)) opt["error"] = "";
+        if (!("description" in opt)) opt["description"] = "";
+        if (!("class" in opt)) opt["class"] = "";
 
         const eWrapper = this.CreateElement("div", { "class": `${ styles.fieldWrapper } ${ opt["class"] }` }),
             eLabel = this.CreateElement("label", { "for": id, "class": styles.fieldLabel, "text": label }),
@@ -347,7 +347,7 @@ export default class CustomDialog extends BaseDialog {
      * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
      * @returns SPAN element
      */
-    private CreateActionButton(label: string, opt: {} = {}): HTMLSpanElement {
+    private CreateActionButton(label: string, opt: {[key:string]: any} = {}): HTMLSpanElement {
         // generate css class for the Button
         let css: string[] = ["ms-Button"];
 
@@ -355,15 +355,15 @@ export default class CustomDialog extends BaseDialog {
         css.push(styles.buttonRoot);
 
         // append user-defined classes
-        if (Object.prototype.hasOwnProperty.call(opt, "class")) css.push(opt["class"]);
+        if ("class" in opt) css.push(opt["class"]);
 
         opt["class"] = css.join(" ");
 
         // add element type
-        if (!Object.prototype.hasOwnProperty.call(opt, "type")) opt["type"] = "button";
+        if (!("type" in opt)) opt["type"] = "button";
 
         // remove "text" property from attr.
-        if (Object.prototype.hasOwnProperty.call(opt, "text")) opt["text"] = undefined;
+        if ("text" in opt) delete opt["text"];
 
         const eWrapper: HTMLSpanElement = this.CreateElement("span", { "class": `ms-Dialog-action ${ styles.action }`}),
             eButton: HTMLButtonElement = this.CreateElement("button", opt),
@@ -445,7 +445,7 @@ export default class CustomDialog extends BaseDialog {
         const eField = this.CreateTextField(label, id, opt);
 
         // warn if this is a duplicate ID. user may or may not have wanted to overwrite it.
-        if (Object.prototype.hasOwnProperty.call(this._fieldsList, id)) {
+        if (id in this._fieldsList) {
             console.warn(`Overwritten: Field already exists in custom dialog template! Field ID: '${ id }'`);
         }
 
@@ -463,7 +463,7 @@ export default class CustomDialog extends BaseDialog {
         const keys = Object.keys(this._fieldsList);
 
         if (typeof id_or_index === "string") {
-            return (Object.prototype.hasOwnProperty.call(this._fieldsList, id_or_index)) ? this._fieldsList[id_or_index] : null;
+            return (id_or_index in this._fieldsList) ? this._fieldsList[id_or_index] : null;
         } else if (typeof id_or_index === "number") {
             return (id_or_index > -1 && id_or_index < keys.length) ? this._fieldsList[keys[id_or_index]] : null;
         } else {
@@ -484,26 +484,24 @@ export default class CustomDialog extends BaseDialog {
 
         // add attributes
         for (const key in attr) {
-            if (Object.prototype.hasOwnProperty.call(attr, key)) {
-                let value = attr[key];
-                
-                switch (key) {
-                    case "text":
-                        elem.innerText = value;
-                        break;
-                    case "html":
-                        elem.innerHTML = value;
-                        break;
-                    case "class":
-                        elem.className = value;
-                        break;
-                
-                    default:
-                        elem[key] = value;
-                        break;
-                }
-                
+            let value = attr[key];
+            
+            switch (key) {
+                case "text":
+                    elem.innerText = value;
+                    break;
+                case "html":
+                    elem.innerHTML = value;
+                    break;
+                case "class":
+                    elem.className = value;
+                    break;
+            
+                default:
+                    elem[key] = value;
+                    break;
             }
+                
         }
 
         return elem;

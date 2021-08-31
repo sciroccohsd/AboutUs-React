@@ -410,6 +410,11 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
         }
 
+        // Permission Groups: Admin group can add new items and edit everything
+        /// TODO: selectable Admin Permission Group Name (store group by its ID)
+
+        //? admin email? might be able to use the selected admin permission group
+
         // add propertypane groups
         if (groupFields_general.length > 0) propertyPaneGroups.push({ "groupName": "General", "groupFields": groupFields_general });
         if (groupFields_orgchart.length > 0) propertyPaneGroups.push({ "groupName": "Org Chart", "groupFields": groupFields_orgchart });
@@ -453,8 +458,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
                 // show warning. we need to ensure the 'About-Us' list properties and fields are set/available
                 CustomDialog.confirm(
-                    `Click 'Continue' to update '${ newValue }' list with About-Us properties and fields.`,
-                    "Update list properties and fields?",
+                    `Do you want to modify "${newValue}" list with About-Us fields and properties? Click "Continue" to proceed.`,
+                    "IMPORTANT! Changes may be irreversible.",
                     {
                         "yes": "Continue",
                         "no": "Cancel"

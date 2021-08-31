@@ -8,20 +8,26 @@ import DataFactory, { IDataFactoryFieldInfo, IFieldUrlValue, IUserInfoItem } fro
 import CustomDialog from './CustomDialog';
 import * as FormControls from './FormControls';
 
-import { IDropdownOption,
-    //IPersonaProps,
+import { CommandBarButton, 
+    IContextualMenuItem, 
+    IDropdownOption,
+    IStackStyles,
+    IStackTokens,
     ITextFieldProps, 
-    Stack } from 'office-ui-fabric-react';
+    Stack} from 'office-ui-fabric-react';
 import { IPersonaProps } from 'office-ui-fabric-react/lib/Persona';
 //import { IPersonaProps } from "@pnp/spfx-controls-react/node_modules/office-ui-fabric-react/lib/components/Persona/Persona.types";
 import { BaseComponentContext } from '@pnp/spfx-controls-react/node_modules/@microsoft/sp-component-base';
 import { DateConvention, TimeConvention, TimeDisplayControlType } from '@pnp/spfx-controls-react';
+import { IItemAddResult, IItemUpdateResult, _Items } from '@pnp/sp/items/types';
 
 export interface IAboutUsFormProps {
     ctx: WebPartContext;
     list: DataFactory;
     form: "new" | "edit";
+    history?: History;
     jcode?: string;
+    itemId?: number;
 }
 
 // Form field's current value, default/initial value, error status, disabled status
@@ -32,7 +38,7 @@ export interface IAboutUsValueState {
     disabled: boolean;  // field is disabled
 }
 
-export interface IAboutUsLookupItemValue {
+export interface IAboutUsMultiChoiceItemValue {
     sp: {results: any[]} | any;
     control: any[];
 }
@@ -44,20 +50,29 @@ export interface IAboutUsUserValue {
 
 enum DISPLAY_STATE {
     "loading",
+    "invalid",
     "ready"
 }
 
 interface IAboutUsFormState {
     valueStates?: {[key:string]: IAboutUsValueState};
-    display: DISPLAY_STATE;
+    display: DISPLAY_STATE;     // form display's state
+
+    enableAdminFields: boolean;  // show/hide admin only fields
+
+    canSaveForm: boolean;
+    canCancelSubmit: boolean;
+    canDeleteItem: boolean;
 }
 
 
 export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAboutUsFormState, {}> {
 //#region PROPERTIES
     private baseComponentContext: BaseComponentContext = null;
+    private listItem: IDataFactoryFieldInfo = null;
+    private fieldsThatHaveBeenModified: string[] = [];   // list of internal field names that have been modified/updated
 
-    private _div = document.createElement("div");
+    private _htmlNode = document.createElement("div");
 //#endregion
 
 //#region CONSTRUCTOR
@@ -66,18 +81,47 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         this.state = {
             valueStates: null,
-            display: DISPLAY_STATE.loading
+            display: DISPLAY_STATE.loading,
+
+            enableAdminFields: false,
+
+            canSaveForm: true,
+            canCancelSubmit: true,
+            canDeleteItem: true
         };
     }
 //#endregion
     
 //#region RENDER
     public async componentDidMount() {
+        let _item = null;
         if (this.props.form === "new") {
             this.setState({"display": DISPLAY_STATE.ready});
             return;
-        } else {
-            // edit form: need to get data first
+
+        } else if (this.props.form === "edit") {
+            // edit form: need to get data first.
+
+            // if item ID was passed use that first
+            if (typeof this.props.itemId === "number") {
+                _item = await this.props.list.api.items.getById(this.props.itemId).get();
+                if (_item.Id) this.listItem = _item;
+            }
+
+            // if jcode was passed and no item yet
+            if (typeof this.props.jcode === "string" && _item === null) {
+                _item = await this.props.list.api.items.filter(`JCode eq '${ this.props.jcode }'`).get();
+                if (_item && _item.length > 0 ) this.listItem = _item[0];
+            }
+
+            // check to see if an item exists
+            if (_item !== null) {
+                this.setState({"display": DISPLAY_STATE.ready});
+
+            } else {
+                // item does not exist or ID/JCode is invalid
+                this.setState({"display": DISPLAY_STATE.invalid});
+            }
         }
     }
     public render(): React.ReactElement<IAboutUsFormProps> {
@@ -90,7 +134,24 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                         { this.props.form === "edit" ? this.editForm(this.props.jcode) : null }
                     </form>
                 : 
-                    <FormControls.LoadingSpinner/>
+                    <div>
+                        { this.state.display === DISPLAY_STATE.loading ? <FormControls.LoadingSpinner/> : null }
+                        {  this.state.display === DISPLAY_STATE.invalid ? 
+                        <div className={styles.aboutUsApp}>
+                            <div className={styles.container}>
+                                <div className={styles.row}>
+                                    <div className={styles.column}>
+                                        <h3>Invalid item ID or JCode</h3>
+                                        <p>Unable to retrieve About-Us item. 
+                                            Please check to ensure the JCode or item ID is correct. 
+                                            Please contact the administrators [ADD_ADMIN_MAILTO] if you have any question.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        : null }
+                    </div>
                 }
             </div>            
         );
@@ -111,13 +172,14 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 let valueState = this.getValueState_by_InternalName(field.InternalName);
                 if (valueState === null) {
                     // if null, create the value state
-                    valueState = this.initializeFieldValueState(field.DefaultValue || "");
+                    valueState = this.initializeFieldValueState(field.DefaultValue || null);
                     // keep track of all the newly created value states
                     valueStates[field.InternalName] = valueState;
                 }
 
                 let element = this.createFieldControl(field, valueState);
                 if (element) elements.push(element);
+
 
             } catch(er) {
                 AboutUsForms.DEBUG("ERROR: newForm()", field, er);
@@ -128,15 +190,20 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         if (!this.state.valueStates) this.setState({"valueStates": valueStates});
 
         return (
-            <Stack tokens={{ childrenGap: 10 }}>{ elements }</Stack>
+            <div>
+                { this.NewEditCommandBar() }
+                <Stack tokens={{ childrenGap: 10 }}>{ elements }</Stack>
+                { this.NewEditCommandBar() }
+            </div>
         );
     }
 //#endregion
     
 //#region EDIT FORM
     private editForm(jcode: string): React.ReactElement {
+        // 
         return (
-            <div></div>
+            <div>Edit form, need to loop through each of the fields and merge valueState with existing item.</div>
         );
     }
 //#endregion
@@ -178,7 +245,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 break;
                     
             case "SP.FieldMultiChoice":
-                valueState.value = this.parseSPDelimitedStringValues( valueState.value );
+                valueState.value = this.createValueState_MultiChoice( valueState.value );
                 element = this.spFieldMultiChoice(field, valueState);
                 break;
 
@@ -374,7 +441,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
             multiSelect: true,
             options: this.generateDropDownOptions(field.Choices),
-            defaultSelectedKeys: valueState.value,
+            defaultSelectedKeys: valueState.value.control,
 
             errorMessage: valueState.errorMessage,
 
@@ -482,12 +549,14 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         try {
             const internalName = evt.target.id,
                 field = this.getField_by_InternalName(internalName),
-                value = field.TypeAsString === "Number" ? this.stringToNumber(evt.target.value) : evt.target.value,
+                isNumber = field.TypeAsString === "Number",
+                value = isNumber ? this.stringToNumber(evt.target.value) : evt.target.value,
                 valueState = this.getValueState_by_InternalName(internalName);
 
             if (valueState === null) return;
 
-            valueState.value = value;
+            valueState.value = isNumber ? value : trim(value as string) || null;
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             const errorMessage = this.validateFieldValue(internalName, value);
@@ -516,10 +585,14 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      */
     private richtext_onChange(value: string, internalName: string): string {
         try {
-            const valueState = this.getValueState_by_InternalName(internalName);
+            const valueState = this.getValueState_by_InternalName(internalName),
+                contentText = this.getTextFromHTMLString(value),
+                contentLength = trim(contentText || "").length;
 
             if (valueState === null) return;
-            valueState.value = value;
+
+            valueState.value = contentLength > 0 ? value : null;
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             let errorMessage = this.validateFieldValue(internalName, value);
@@ -552,24 +625,36 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             if (valueState === null) return;
             
             if (field["odata.type"] === "SP.FieldMultiChoice") {
-                if (!(valueState.value instanceof Array)) valueState.value = [];
-
                 // is multi-choice: value returned is what changed, not what's selected
                 // need to update the existing value with what changed
                 if (value.selected) {
-                    
+                    if (valueState.value.sp === null) valueState.value.sp = {results: []};
+                    if (valueState.value.control === null) valueState.value.control = [];
+
                     // new value added
-                    valueState.value.push(value.key);
+                    valueState.value.sp.results.push(value.key);
+                    valueState.value.control.push(value.key);
+
                 } else {
-                    // remove selected value
-                    const ndx = valueState.value.indexOf(value.key);
-                    if (ndx > -1) valueState.value.splice(ndx, 1);
+                    if (valueState.value.sp !== null && valueState.value.control !== null) {
+                        // remove selected value
+                        const ndx = valueState.value.control.indexOf(value.key);
+                        if (ndx > -1) {
+                            valueState.value.sp.results.splice(ndx, 1);
+                            valueState.value.control.splice(ndx, 1);
+
+                            if (valueState.value.sp.results.length === 0) valueState.value.sp = null;
+                            if (valueState.value.control.length === 0) valueState.value.control = null;
+                        }
+                    }
+
                 }
 
             } else {
                 // is single-choice: value returned is the new value
                 valueState.value = value.key;
             }
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             let errorMessage = this.validateFieldValue(internalName, valueState.value);
@@ -603,6 +688,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             const value = this.createValueState_LookupItem(items, internalName);
 
             valueState.value = value;
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             let errorMessage = this.validateFieldValue(internalName, value);
@@ -638,6 +724,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 value = {...valueState.value, Description: val};
             }
             valueState.value = value;
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             let errorMessage = this.validateFieldValue(internalName, value);
@@ -665,11 +752,14 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * }     
      */
     private datetime_onChange(newDate: Date, internalName: string) {
+        AboutUsForms.DEBUG("datetime_onChange(): internalName:", internalName);
         try {
             const valueState = this.getValueState_by_InternalName(internalName);
 
             if (valueState === null) return;
-            valueState.value = newDate.toISOString();
+
+            valueState.value = newDate instanceof Date ? newDate.toISOString() : null;
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             valueState.errorMessage = this.validateFieldValue(internalName, newDate);
@@ -700,6 +790,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             const value = this.createValueState_UserValue(users, internalName);
 
             valueState.value = value;
+            this.fieldWasModified(internalName);
 
             // validate / set errorMessage
             let errorMessage = this.validateFieldValue(internalName, value);
@@ -775,16 +866,14 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         return error;
     }
-//#endregion
-    
-//#region HELPERS
+
     /** User text validation
      * @param value String value to validate
      * @param isRequired Boolean if the field is required/mandatory
      * @param max Maximum length of the string
      * @returns Error message or null
      */
-    private validateString(value: string, isRequired: boolean = false, max?: number): string {
+     private validateString(value: string, isRequired: boolean = false, max?: number): string {
         const length = trim(value || "").length;
 
         if (isRequired && length === 0) return "Required.";
@@ -836,17 +925,17 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     }
 
     /** User choice or multi-choice validation
-     * @param values Array of values or singlar value
+     * @param choices Array of values or singlar value
      * @param isRequired Boolean if the field is required/mandatory
      * @param min Minimum number of selections
      * @param max Maximum number of selections
      * @returns Error message or null
      */
-    private validateChoice(values: any | any[], isRequired: boolean = false, min?: number, max?: number): string {
-        if (typeof values === "string") return this.validateString(values, isRequired);
-        if (typeof values === "number") return this.validateNumber(values, isRequired);
+    private validateChoice(choices: any | any[], isRequired: boolean = false, min?: number, max?: number): string {
+        if (typeof choices === "string") return this.validateString(choices, isRequired);
+        if (typeof choices === "number") return this.validateNumber(choices, isRequired);
 
-        const length = values instanceof Array ? values.length : 0;
+        const length = choices instanceof Array ? choices.length : 0;
 
         if (isRequired && length === 0) return "Required.";
 
@@ -856,13 +945,174 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         return null;
     }
+//#endregion
+    
+//#region TOOLBAR CONTROLS (SAVE, CANCEL)
+    /** New or Edit form command bar
+     * @returns DIV with 'Cancel', 'Save command bar
+     */
+    private NewEditCommandBar(): React.ReactElement {
+        const buttons = [],
+            stackStyle: IStackStyles = {
+                root: { height: 44 }
+            },
+            tokens: IStackTokens = { childrenGap: 10 };
+
+        // cancel
+        buttons.push(React.createElement(CommandBarButton, {
+            hidden: !this.state.canCancelSubmit,
+            iconProps: { iconName: "Cancel" },
+            text: "Cancel",
+            className: styles.button,
+            onClick: this.cancel_onClick.bind(this)
+        }));
+
+        // save
+        buttons.push(React.createElement(CommandBarButton, {
+            hidden:  !this.state.canSaveForm,
+            iconProps: this.props.form === "new" ? { iconName: "Add" } : { iconName: "Save" },
+            text: this.props.form === "new" ? "Create" : "Update",
+            className: styles.button + " " + styles.buttonPrimary,
+            onClick: this.save_onClick.bind(this)
+        }));
+
+        return <Stack 
+                horizontal
+                horizontalAlign="end"
+                className={styles.commandbar}
+                styles={stackStyle}
+                tokens={tokens}
+            >{ buttons }</Stack>;
+    }
+
+    /** Cancel button click handler
+     * @param evt Click event object
+     * @param item Toolbar item clicked
+     */
+    private async cancel_onClick(evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>, item?: IContextualMenuItem): Promise<boolean | void> {
+        let goBack: boolean;
+
+        // check to see if any changes were made to the form
+        if (this.fieldsThatHaveBeenModified.length > 0) {
+            // make sure they didn't accidentally clicked 'Cancel'
+            goBack = await CustomDialog.confirm(`Are you sure you want to cancel? ${(this.props.form === "new") ? "The new item " : "Changes "} will not be saved.`, "Cancel?", undefined);
+
+        } else {
+            // no changes, ok to cancel
+            goBack = true;
+        }
+        
+        if (goBack) this.goBack();
+    }
+
+    /** Save button click handler
+     * @param evt Click event object
+     * @param item Toolbar item clicked
+     */
+    private async save_onClick(evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>, item?: IContextualMenuItem): Promise<boolean | void> {
+        // show modal
+        
+        const _getSPValueFromValueState = valueState => {
+            if (valueState.value !==  null && typeof valueState.value === "object" && "sp" in valueState.value) {
+                return valueState.value.sp;
+            } else {
+                return valueState.value;
+            }
+        };
+
+        const _getSPFieldName = internalName => {
+            const field = this.getField_by_InternalName(internalName);
+            if (field === null) return internalName;
+
+            AboutUsForms.DEBUG("save_onClick():", internalName, field["odata.type"]);
+
+            switch (field["odata.type"]) {
+                case "SP.FieldLookup":
+                case "SP.FieldUser":
+                    return internalName + "Id";
+            
+                default:
+                    return internalName;
+            }
+        };
+        
+        const data = {};
+
+        if (this.props.form === "new") {
+            // new forms: save fields that have changed and items that have values
+            Object.keys(this.state.valueStates).forEach(internalName => {
+                const valueState = this.state.valueStates[internalName],
+                    value = _getSPValueFromValueState(valueState),
+                    wasModified = this.fieldsThatHaveBeenModified.indexOf(internalName) > -1;
+
+                if (value !== null || wasModified) {
+                    data[_getSPFieldName(internalName)] = value;
+                }
+            });
+
+        } else {
+            // edit form: update fields that were changed
+            this.fieldsThatHaveBeenModified.forEach(internalName => {
+                const valueState = this.state.valueStates[internalName],
+                    value = _getSPValueFromValueState(valueState);
+
+                    data[_getSPFieldName(internalName)] = value;
+            });
+        }
+
+        if (Object.keys(data).length > 0) {
+            let response: IItemAddResult | IItemUpdateResult;
+            if (this.props.form === "new") {
+                response = await this.props.list.api.items.add(data);
+            } else {
+                response = await this.props.list.api.items.getById(parseInt(this.listItem.Id)).update(data);
+            }
+
+            // parse response
+            AboutUsForms.DEBUG("Save():", data, response);
+        }
+
+    }
+
+    private goBack(url?: string): void {
+        if (this.props.history.length > 1) {
+            this.props.history.back();
+        } else {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.delete("form");
+            window.location.assign(window.location.pathname + "?" + urlParams.toString());
+        }
+    }
+
+//#endregion
+
+//#region HELPERS
+    private createValueState_MultiChoice(choices: string | string[]): IAboutUsMultiChoiceItemValue {
+        // if a string was passed, assume it is an SP delimited (;#) string
+        if (typeof choices === "string") choices = this.parseSPDelimitedStringValues(choices);
+
+        // exit if already an IAboutUsMultiChoiceItemValue
+        if (typeof choices === "object" && "sp" in choices) return choices;
+
+        const value = {
+            sp: { results: null },
+            control: null
+        };
+
+        if (choices instanceof Array) {
+            value.sp.results = choices;
+            value.control = choices;
+        }
+
+        return value;
+    }
 
     /** Creates the LookupData object (IAboutUsLookupItemValue)
-     * @param values Lookup value or array of lookup values. Object(s) must contain 'ID' property
+     * @param choices Lookup value or array of lookup values. Object(s) must contain 'ID' property
      * @param internalName Field InternalName used as the field's reference ID.
      * @returns LookupValue object that can beused for the Combo
      */
-    private createValueState_LookupItem(values: any | any[], internalName: string): IAboutUsLookupItemValue {
+    private createValueState_LookupItem(choices: any | any[], internalName: string): IAboutUsMultiChoiceItemValue {
         const field = this.getField_by_InternalName(internalName),
             lookupField = field.LookupField || null,
             value = {
@@ -871,17 +1121,18 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             };
 
         // return early if no value(s)
-        if (!values) return value;
+        if (!choices) return value;
 
         // normalize values. make into array
-        if (values instanceof Array === false) values = [values];
+        if (choices instanceof Array === false) choices = [choices];
 
         // loop through each value
-        for (let i = 0; i < values.length; i++) {
-            const selected = values[i],
+        for (let i = 0; i < choices.length; i++) {
+            const selected = choices[i],
                 // get the selected value key
                 key = selected.Id || selected.ID || selected.id || selected.key || null,
-                name = (lookupField ? selected[lookupField] : null) || selected.name || null;
+                //name = (lookupField ? selected[lookupField] : null) || selected.name || null;
+                name = ("name" in selected) ? selected.name : (lookupField in selected) ? selected[lookupField] : null;
                 
 
             if (key) {
@@ -1030,35 +1281,55 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @param id Field InternalName of field to retrieve
      * @returns Field info
      */
-    private getField_by_InternalName(InternalName: string): IDataFactoryFieldInfo {
-        return find(this.props.list.fields, ["InternalName", InternalName]) || null;
+    private getField_by_InternalName(internalName: string): IDataFactoryFieldInfo {
+        return find(this.props.list.fields, ["InternalName", internalName]) || null;
     }
 
     /** Get the ValueState ({defaultValue, value, errorMessage}) for this field
-     * @param InternalName Field InternalName for the ValueState object to retrieve
+     * @param internalName Field InternalName for the ValueState object to retrieve
      * @returns ValueState object for Field ID passed
      */
-    public getValueState_by_InternalName(InternalName: string): IAboutUsValueState {
-        return (this.state.valueStates && Object.prototype.hasOwnProperty.call(this.state.valueStates, InternalName)) 
-            ? this.state.valueStates[InternalName] 
+    public getValueState_by_InternalName(internalName: string): IAboutUsValueState {
+        return (this.state.valueStates && internalName in this.state.valueStates) 
+            ? this.state.valueStates[internalName] 
             : null ;
     }
 
     /** Update the ValueState for a specific field. Updates the state and display. Pauses, to allow the state to update correctly.
-     * @param InternalName Field InternalName for the ValueState object to set.
+     * @param internalName Field InternalName for the ValueState object to set.
      * @param valueState New ValueState to set.
      */
-    public async setValueState_for(InternalName: string, valueState: IAboutUsValueState): Promise<void> {
-        this.setState({ "valueStates": {...this.state.valueStates, InternalName: valueState} });
+    public async setValueState_for(internalName: string, valueState: IAboutUsValueState): Promise<void> {
+        this.setState({ "valueStates": {...this.state.valueStates, [internalName]: valueState} });
         // setState needs just a momemt to update the state. 
         // not required but helps if you need to reference it right away.
         await this.sleep(0);
     }
 
+    /** Get the text from a string representing HTML.
+     * @param htmlString String representing HTML.
+     * @returns innerText from the HTML
+     */
     private getTextFromHTMLString(htmlString: string): string {
-        this._div.innerHTML = htmlString || "";
+        this._htmlNode.innerHTML = htmlString || "";
 
-        return this._div.innerText;
+        return this._htmlNode.innerText;
+    }
+
+    /** Flag (or unflag) fields that have been modified.
+     * @param internalName Field InternalName used as the field's reference ID.
+     * @param addToList Add or remove from fieldsThatHaveBeenModified list. Default: true;
+     */
+    private fieldWasModified(internalName: string, addToList: boolean = true) {
+        const index = this.fieldsThatHaveBeenModified.indexOf(internalName);
+        if (addToList && index === -1) {
+            // add to list
+            this.fieldsThatHaveBeenModified.push(internalName);
+
+        } else if (addToList === false && index > -1) {
+            // remove from list
+            this.fieldsThatHaveBeenModified.splice(index, 1);
+        }
     }
 
     /** Pauses the script for a set amount of time.

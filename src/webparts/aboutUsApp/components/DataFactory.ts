@@ -14,6 +14,7 @@ import { IList, IListEnsureResult, IListInfo } from "@pnp/sp/lists";
 import { IFieldAddResult, IFieldInfo, IFieldUpdateResult } from "@pnp/sp/fields";
 import { IViewAddResult, IViewInfo, IViews, IViewUpdateResult } from "@pnp/sp/views";
 import { IForms } from "@pnp/sp/forms";
+import { IItem, IItems } from "@pnp/sp/items";
 
 export interface IDataFactoryFieldInfo extends IFieldInfo {
     MaxLength?: number;
@@ -71,9 +72,6 @@ interface IFieldStatusResults {
     "exists": boolean;
     "update": Partial<IDataFactoryFieldInfo>;
 }
-
-//> npm install --save debug
-//> npm install --save-dev @types/debug
 
 // private list = new DataFactory("AboutUs_Content");
 // await list.ensure(); // ensures list exists. create list/fields if missing
@@ -263,12 +261,6 @@ export default class DataFactory {
         let status = { "exists": false, "update": null };
 
         const existingField = find(existingFields, ["InternalName", field.InternalName]);
-        // const propertyNameTranslation = { "AutoIndexed": "Indexed" },
-        //     translatePropertyName = propertyName => {
-        //         return (Object.prototype.hasOwnProperty.call(propertyNameTranslation, propertyName))
-        //             ? propertyNameTranslation[propertyName]
-        //             : propertyName ;
-        //         };
         
         // if there is an existing field, check the field's properties
         if (existingField) {
@@ -572,6 +564,18 @@ export default class DataFactory {
     //#endregion
 
     //#region ITEMS
+    public async getItemById(id: number): Promise<any> {
+        let _item = null;
+        try {
+            _item = await this.api.items.getById(id).get();
+
+        } catch (er) {
+            DataFactory.DEBUG("ERROR! getItemById(): Unable to fetch item by id:", id, er);
+        }
+        return _item;
+    }
+    
+
     //#endregion
 
     //#region HELPERS

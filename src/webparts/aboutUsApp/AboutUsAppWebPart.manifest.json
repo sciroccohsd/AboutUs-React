@@ -30,7 +30,9 @@
         {"key": "page", "text": "About-Us Page"},
         {"key": "orgchart", "text": "Org Chart"},
         {"key": "accordian", "text": "Accordian View"},
-        {"Key": "phone", "text": "Phone Directory"}
+        {"Key": "phone", "text": "Phone Directory"},
+        {"Key": "orgtable", "text": "Org-Function-Mission Table"},
+        {"Key": "leadershipbroadcast", "text": "Leadership Broadcast"}        
       ],
       "listName": "",
       "ppListName_dropdown": "",
