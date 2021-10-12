@@ -10,33 +10,35 @@ import CustomDialog from './CustomDialog';
 import * as FormControls from './FormControls';
 import AboutUsForm, { IAboutUsFormProps } from "./AboutUsForm";
 import AboutUsForms from './AboutUsForm';
+import { IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
 
 export interface IAboutUsAppProps {
     displayType: string;
+    webpart: IAboutUsAppWebPartProps;
     list: DataFactory;
 }
 
 interface IAboutUsAppState {
     displayType: string;
-    jcode: string;
+    itemId: number;
     items: any;
     item?: any;
 }
 
 export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAboutUsAppState, {}> {
-    //#region PROPERTIES
+//#region PROPERTIES
     public static ctx: WebPartContext = null;   // must set the context before using this class
 
     private formValues = {};
-    //#endregion
+//#endregion
 
-    //#region CONSTRUCTOR
+//#region CONSTRUCTOR
     constructor(props) {
         super(props);
 
         const url = new URL(window.location.href);
         let form = (url.searchParams.get("form") || "").toLowerCase(),
-            jcode = (url.hash || url.searchParams.get("jcode") || "").toLowerCase();
+            itemId = parseInt((url.searchParams.get("id") || "0"), 10);
 
         // make sure 'display' param value is valid:
         if (["new", "edit"].indexOf(form) === -1) form = "";
@@ -44,7 +46,7 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         // initialize state
         this.state = {
             "displayType": form || this.props.displayType,
-            "jcode": jcode,
+            "itemId": (itemId > 0) ? itemId : null,
             "items": [],
             "item": null
         };
@@ -54,10 +56,13 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
            3. setState callback (2nd argument), gets called but state may not be updated. 
         */
     }
-    //#endregion
+//#endregion
 
-    //#region RENDER
+//#region RENDER
     public render(): React.ReactElement<IAboutUsAppProps> {
+        // DEBUG
+        console.info("this.props.lists:", this.props.list);
+
         return (
             <div className={styles.aboutUsApp}>
                 <div className={styles.container}>
@@ -69,12 +74,21 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
                             {/* { this.state.displayType === "phone" ? this.createPhoneDisplay() : null } */}
                             { this.state.displayType === "new" ? React.createElement(AboutUsForm, {
                                     ctx: AboutUsApp.ctx,
+                                    webpart: this.props.webpart,
                                     list: this.props.list,
                                     form: "new",
                                     history: History,
                                 }) : null 
                             }
-                            {/* { this.state.displayType === "edit" ? this.createEditForm() : null } */}
+                            { this.state.displayType === "edit" ? React.createElement(AboutUsForm, {
+                                    ctx: AboutUsApp.ctx,
+                                    webpart: this.props.webpart,
+                                    list: this.props.list,
+                                    form: "edit",
+                                    itemId: this.state.itemId,
+                                    history: History,
+                                }) : null 
+                            }
                         </div>
                     }
                 </div>
@@ -91,13 +105,13 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
                 buttonLabel="Settings"
             />;
     }
-    //#endregion
+//#endregion
 
-    //#region 
+//#region 
 
-    //#endregion
+//#endregion
 
-    //#region 
+//#region 
 
-    //#endregion
+//#endregion
 }

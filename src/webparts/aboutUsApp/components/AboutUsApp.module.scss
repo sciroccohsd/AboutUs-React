@@ -47,6 +47,18 @@
     position: relative;
     text-align: center;
 
+    .formHeader {
+      background-color: "[theme: SuiteBarBackground, default:#03787c]";
+      color: "[theme: SuiteBarText, default:#ffffff]";
+      font-weight: 100;
+      margin: 0;
+      padding: .5em 0;
+    }
+
+    .formFieldsContainer {
+      margin: 1em 0 2em 0;
+    }
+
     .description {
       color: "[theme: inputPlaceholderText, default:#605e5c]";
       font-size: 11px;
@@ -62,16 +74,18 @@
       position: relative;
       text-align: initial;
 
-      .label {
-        font-family: inherit;
-        font-size: 14px;
-        font-weight: 400;
-        color: "[theme: inputText, default:#323130]";
+      label {
+        // border-left: 3px solid;
+        // border-left-color: "[theme: SuiteBarBackground, default:#03787c]";
         box-sizing: border-box;
         box-shadow: none;
-        margin: 0px;
+        color: "[theme: SuiteBarBackground, default:#03787c]";
         display: block;
-        padding: 5px 0px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+        padding: 5px 0 5px 5px;
         overflow-wrap: break-word;
       }
 

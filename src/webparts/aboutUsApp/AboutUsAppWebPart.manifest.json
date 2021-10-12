@@ -22,21 +22,55 @@
     "groupId": "5c03119e-3074-46fd-976b-c60198311f70", // Other
     "group": { "default": "Other" },
     "title": { "default": "About-Us App" },
-    "description": { "default": "Display organizational information for hierachical structures. Display as a page, accordian, or organizational chart." },
+    "description": { "default": "Enterprise directory (e.g.: YellowPages) for hierarchical organizations." },
     "officeFabricIconFontName": "Storyboard",
     "properties": {
+      "description": "Enterprise directory (e.g.: YellowPages) for hierarchical organizations.",
       "displayType": "page",
       "displayTypeOptions": [
         {"key": "page", "text": "About-Us Page"},
         {"key": "orgchart", "text": "Org Chart"},
         {"key": "accordian", "text": "Accordian View"},
         {"Key": "phone", "text": "Phone Directory"},
-        {"Key": "orgtable", "text": "Org-Function-Mission Table"},
+        {"Key": "datatable", "text": "Org-Function-Mission Table"},
         {"Key": "leadershipbroadcast", "text": "Leadership Broadcast"}        
       ],
       "listName": "",
       "ppListName_dropdown": "",
-      "orgchart_key": {}
+      "orgchart_key": {},
+      "fields": {
+        "OrgType": {
+          "required": true,
+          "controlled": true
+        },
+        "Title": {
+          "required": true,
+          "controlled": true
+        },
+        "Name": {
+          "required": true,
+          "controlled": true
+        },
+        "Parent": {
+          "required": false,
+          "controlled": true
+        },
+        "OrderBy": {
+          "required": true,
+          "controlled": true
+        },
+        "Mission": {
+          "required": false,
+          "controlled": true
+        },
+        "Tasks": {
+          "required": false,
+          "controlled": true
+        }
+      },
+      "ownerGroup": null,
+      "managerGroup": null,
+      "readerGroup": null
     }
   }]
 }

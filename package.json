@@ -20,7 +20,7 @@
     "@microsoft/sp-webpart-base": "1.11.0",
     "@pnp/graph": "^2.6.0",
     "@pnp/sp": "^2.6.0",
-    "@pnp/spfx-controls-react": "^3.2.1",
+    "@pnp/spfx-controls-react": "3.3.0",
     "array.prototype.find": "^2.1.1",
     "babel-polyfill": "^6.26.0",
     "install": "^0.13.0",

@@ -13,7 +13,6 @@ export interface ICustomDialogField {
     "description": HTMLDivElement;
     "error": HTMLDivElement;
     "fields": HTMLInputElement[] | HTMLTextAreaElement[] | HTMLSelectElement[] | any[];
-
 }
 
 /** Use the premade custom methods (returns Promise) or create your own custom dialog. 
@@ -147,14 +146,14 @@ export default class CustomDialog extends BaseDialog {
 
         await dialog.AddMessage(msg)
             .AddTextField(opt["label"], id, { "value": opt["value"], "error": opt["error"], "description": opt["description"] })
-            .AddCancelAction("Close", { "tabIndex": 1 })
+            .AddCancelAction("Close", { "tabIndex": 0 })
             .AddAction("OK", {
-                "tabIndex": 0,
+                "tabIndex": 1,
                 "onclick": evt => {
                     value = dialog.GetFieldElements(id).fields[0].value;
                     dialog.close();
                 }
-            })
+            }, true)
             .show();
 
         return value;
@@ -179,19 +178,19 @@ export default class CustomDialog extends BaseDialog {
 
         await dialog.AddMessage(msg)
             .AddAction(text.no, {
-                "tabIndex": 1,
+                "tabIndex": 0,
                 "onclick": async evt => {
                     value = false;
                     await dialog.close();
                 }
             })
             .AddAction(text.yes, {
-                "tabIndex": 0,
+                "tabIndex": 1,
                 "onclick": async evt => {
                     value = true;
                     await dialog.close();
                 }
-            })
+            }, true)
             .show();
 
         return value;
@@ -347,12 +346,13 @@ export default class CustomDialog extends BaseDialog {
      * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
      * @returns SPAN element
      */
-    private CreateActionButton(label: string, opt: {[key:string]: any} = {}): HTMLSpanElement {
+    private CreateActionButton(label: string, opt: {[key:string]: any} = {}, isPrimaryButton: boolean = false): HTMLSpanElement {
         // generate css class for the Button
         let css: string[] = ["ms-Button"];
 
         // add default customDialog class
         css.push(styles.buttonRoot);
+        if (isPrimaryButton) css.push(styles.buttonPrimary);
 
         // append user-defined classes
         if ("class" in opt) css.push(opt["class"]);
@@ -407,8 +407,8 @@ export default class CustomDialog extends BaseDialog {
      * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
      * @returns self
      */
-    public AddAction(label: string, opt: {} = {}): CustomDialog {
-        const eButton = this.CreateActionButton(label, opt);
+    public AddAction(label: string, opt: {} = {}, isPrimaryButton: boolean = false): CustomDialog {
+        const eButton = this.CreateActionButton(label, opt, isPrimaryButton);
         this._body.actions.append(eButton);
         return this;
     }

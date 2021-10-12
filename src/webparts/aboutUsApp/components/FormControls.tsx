@@ -2,7 +2,7 @@ import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
 import { assign } from 'lodash';
 // https://docs.microsoft.com/en-us/javascript/api/office-ui-fabric-react?view=office-ui-fabric-react-latest
-import { Dropdown, 
+import { Dropdown,
     IDropdownProps,
     ILabelProps,
     ISpinnerProps,
@@ -23,7 +23,6 @@ import { ComboBoxListItemPicker,
     ListItemPicker } from '@pnp/spfx-controls-react';
 import { IRichTextProps, RichText } from '@pnp/spfx-controls-react/lib/RichText';
 import { PeoplePicker, PrincipalType, IPeoplePickerProps } from '@pnp/spfx-controls-react/lib/PeoplePicker';
-import { Toolbar } from '@pnp/spfx-controls-react/lib/Toolbar';
 import { IFieldUrlValue } from './DataFactory';
 
 export default ReactControls;
@@ -80,7 +79,7 @@ export class FieldWrapper extends React.Component<IFieldWrapperProps> {
 
 export class LabelElement extends React.Component<ILabelProps> {
     public render(): React.ReactElement<ILabelProps> {
-        const props = assign({}, this.props, { className: "FormControlsLabel "  + this.props.className || ""});
+        const props = assign({}, this.props, { className: "FormControlsLabel "  + (this.props.className || "")});
         return React.createElement(Label, props);
     }
 }
@@ -210,41 +209,36 @@ export interface IRichTextControlProps extends IRichTextProps {
     label?: string;
     description?: string;
     errorMessage?: string;
-    disabled?: boolean;
+    disabled: boolean;
 }
 export class RichTextControl extends React.Component<IRichTextControlProps> {
     public render(): React.ReactElement<IRichTextControlProps> {
+        const props: IRichTextControlProps = assign({}, this.props, {
+            isEditMode: !this.props.disabled,
+
+            // remove props that are not RichText
+            label: undefined,
+            required: undefined,
+            description: undefined,
+            errorMessage: undefined
+        });
+
         let labelClassNames = [],
             richTextWrapperClassNames = [styles.richTextWrapper];
-        const props: IRichTextProps = assign({}, this.props, {
-                className: `${(this.props.className || "")} ${ styles.richtext }`,
-
-                // remove props that are not IRichTextProps
-                required: undefined,
-                id: undefined,
-                label: undefined,
-                description: undefined,
-                errorMessage: undefined,
-                disabled: undefined
-            });
 
         // show red border if error occured
         if (this.props.errorMessage) richTextWrapperClassNames.push( styles.richTextWrapperError );
 
-        // props.disabled & props.isEditMode is the same property. isEditMode value takes priority.
-        props.isEditMode = this.props.isEditMode === false 
-            ? false 
-            : this.props.disabled ? false : true;
-
         // label classnames
         labelClassNames.push("ms-label");
-        labelClassNames.push(styles.label);
         if (this.props.required) labelClassNames.push(styles.required);
 
+        // NOTE: RichText control needs to be expressed verbosely in order for the 'value' prop to be accepted.
         return (
             <FieldWrapper>
                 <LabelElement htmlFor={ this.props.id } required={ this.props.required }>{ this.props.label }</LabelElement>
                 <div className={ richTextWrapperClassNames.join(" ") }>
+                    {/* <RichText value={this.props.value} isEditMode={!this.props.disabled} onChange={this.props.onChange} placeholder={this.props.placeholder} /> */}
                     { React.createElement(RichText, props) }
                 </div>
                 <DescriptionElement text={this.props.description}/>
@@ -310,7 +304,17 @@ export class ComboBoxListItemPickerControl extends React.Component<IComboBoxList
         return (
             <FieldWrapper>
                 <LabelElement required={ this.props.required }>{ this.props.label }</LabelElement>
-                { React.createElement(ComboBoxListItemPicker, props) }
+                {/* { React.createElement(ComboBoxListItemPicker, props) } */}
+                <ComboBoxListItemPicker
+                    disabled={ this.props.disabled }
+                    spHttpClient={ this.props.spHttpClient }
+                    webUrl={ this.props.webUrl }
+                    listId={ this.props.listId }
+                    columnInternalName={ this.props.columnInternalName }
+                    multiSelect={ this.props.multiSelect }
+                    defaultSelectedItems={ this.props.defaultSelectedItems }
+                    onSelectedItem={ this.props.onSelectedItem }
+                />
                 <DescriptionElement text={this.props.description}/>
                 <ErrorMessageElement text={this.props.errorMessage}/>
             </FieldWrapper>

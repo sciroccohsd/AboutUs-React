@@ -156,7 +156,7 @@ $font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-sys
                     font-size: 14px;
                     font-weight: 400;
                     box-sizing: border-box;
-                    border: 1px solid rgb(58, 150, 221);
+                    border: 1px solid "[theme: ButtonBorder, default:#a19f9d]";
                     display: inline-block;
                     text-decoration: none;
                     text-align: center;
@@ -165,9 +165,14 @@ $font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-sys
                     border-radius: 2px;
                     min-width: 80px;
                     height: 32px;
-                    background-color:  rgb(58, 150, 221);
-                    color: rgb(24, 37, 52);
+                    background-color: "[theme: ButtonBackground, default:#faf9f8]";
+                    color: "[theme: ButtonText, default:#323130]";
                     user-select: none;
+
+                    &.buttonPrimary {
+                        background-color: "[theme: accentButtonBackground, default:#4f6bed]";
+                        color: "[theme: accentButtonText, default:#ffffff]";
+                    }
 
                     .buttonContainer {
                         display: flex;
