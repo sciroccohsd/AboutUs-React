@@ -2,17 +2,13 @@ import * as React from 'react';
 import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
-    IPropertyPaneConditionalGroup,
     IPropertyPaneConfiguration,
     IPropertyPaneDropdownOption,
-    IPropertyPaneField,
-    IPropertyPaneGroup,
     IPropertyPanePage,
     PropertyPaneButton,
     PropertyPaneButtonType,
     PropertyPaneCheckbox,
     PropertyPaneDropdown,
-    PropertyPaneDropdownOptionType,
     PropertyPaneHorizontalRule,
     PropertyPaneLabel,
     PropertyPaneLink,
@@ -27,9 +23,6 @@ import { SPComponentLoader } from "@microsoft/sp-loader";
 import DataFactory, { IListValidationResults, TAboutUsRoleDef } from './components/DataFactory';
 import CustomDialog from './components/CustomDialog';
 import { trim, escape, find } from 'lodash';
-import { PropertyPaneDescription } from 'AboutUsAppWebPartStrings';
-import { GroupShowAll, textAreaProperties } from 'office-ui-fabric-react';
-import { ISiteUserInfo } from '@pnp/sp/site-users/types';
 
 // declare global {
 //     interface Window {

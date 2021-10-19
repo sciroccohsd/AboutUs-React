@@ -2,7 +2,7 @@ import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
 import { find, trim, escape, assign } from 'lodash';
 import * as strings from 'AboutUsAppWebPartStrings';
-import { WebPartContext } from '@microsoft/sp-webpart-base';
+import { WebPartContext, BaseWebPartContext } from '@microsoft/sp-webpart-base';
 
 import DataFactory, { IDataFactoryFieldInfo, IFieldUrlValue, IUserInfoItem } from './DataFactory';
 import CustomDialog from './CustomDialog';
@@ -19,8 +19,6 @@ import { CommandBarButton,
     Stack,
     } from 'office-ui-fabric-react';
 import { IPersonaProps } from 'office-ui-fabric-react/lib/Persona';
-//import { IPersonaProps } from "@pnp/spfx-controls-react/node_modules/office-ui-fabric-react/lib/components/Persona/Persona.types";
-import { BaseComponentContext } from '@pnp/spfx-controls-react/node_modules/@microsoft/sp-component-base';
 import { DateConvention, TimeConvention, TimeDisplayControlType } from '@pnp/spfx-controls-react';
 import { IItemAddResult, IItemUpdateResult, _Items } from '@pnp/sp/items/types';
 import { PermissionKind } from '@pnp/sp/security';
@@ -77,7 +75,7 @@ interface IAboutUsFormState {
 
 export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAboutUsFormState & any, {}> {
 //#region PROPERTIES
-    private baseComponentContext: BaseComponentContext = null;
+    private baseComponentContext: BaseWebPartContext = null;
     private listItem: {[prop: string]: any} = null;
     private fieldsThatHaveBeenModified: string[] = [];   // list of internal field names that have been modified/updated
 

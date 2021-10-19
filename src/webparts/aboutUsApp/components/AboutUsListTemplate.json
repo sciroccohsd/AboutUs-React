@@ -209,6 +209,7 @@
       "RichText": false,
       "WikiLinking": false
     },
+    
     {
       "__metadata": {
         "type": "SP.FieldMultiLineText"
@@ -487,5 +488,192 @@
         "High": 176
       }
     }
+  },
+
+  "fieldMicroForms": {
+    "Tasks": [
+      {
+        "type": "textbox",
+        "internalName": "text",
+        "label": "Task",
+        "required": true
+      },
+      {
+        "type": "textbox",
+        "internalName": "auth",
+        "label": "Tasking Authority",
+        "required": false
+      },
+      {
+        "type": "textbox",
+        "internalName": "tooltip",
+        "label": "Tooltip (text displayed on hoverover)",
+        "required": true
+      }
+    ],
+
+    "Bios": [
+      {
+        "type": "hidden",
+        "internalName": "id"
+      },
+      {
+        "type": "textbox",
+        "internalName": "position",
+        "label": "Position",
+        "required": false
+      },
+      {
+        "type": "url",
+        "internalName": "image",
+        "label": "Link to image",
+        "required": true
+      },
+      {
+        "type": "url",
+        "internalName": "bio",
+        "label": "Link to biography",
+        "required": false
+      },
+      {
+        "type": "textbox",
+        "internalName": "name",
+        "label": "Display name",
+        "required": true
+      },
+      {
+        "type": "textbox",
+        "internalName": "position",
+        "label": "Title or position",
+        "required": false
+      },
+      {
+        "type": "hidden",
+        "internalName": "broadcastDate"
+      }
+    ],
+
+    "Links": [
+      {
+        "type": "url",
+        "internalName": "url",
+        "label": "Link",
+        "required": true
+      },
+      {
+        "type": "textbox",
+        "internalName": "text",
+        "label": "Display text",
+        "required": false
+      },
+      {
+        "type": "checkbox",
+        "internalName": "target",
+        "label": "Open link in a new window",
+        "required": false
+      },
+      {
+        "type": "textbox",
+        "internalName": "tooltip",
+        "label": "Tooltip (text displayed on hoverover",
+        "required": false
+      }
+    ],
+
+    "SOP": [
+      {
+        "type": "url",
+        "internalName": "url",
+        "label": "Link",
+        "required": true
+      },
+      {
+        "type": "textbox",
+        "internalName": "text",
+        "label": "Display text",
+        "required": false
+      },
+      {
+        "type": "checkbox",
+        "internalName": "target",
+        "label": "Open link in a new window",
+        "required": false
+      },
+      {
+        "type": "textbox",
+        "internalName": "tooltip",
+        "label": "Tooltip (text displayed on hoverover)",
+        "required": false
+      }
+    ],
+
+    "Contacts": [
+      {
+        "type": "textbox",
+        "internalName": "text",
+        "label": "Name",
+        "required": true
+      },
+      {
+        "type": "textbox",
+        "internalName": "title",
+        "label": "Title or position",
+        "required": false
+      },
+      {
+        "type": "email",
+        "internalName": "email",
+        "label": "NIPR Email",
+        "required": false
+      },
+      {
+        "type": "email",
+        "internalName": "email2",
+        "label": "SIPR Email",
+        "required": false
+      },
+      {
+        "type": "email3",
+        "internalName": "email",
+        "label": "JWIC Email",
+        "required": false
+      },
+      {
+        "type": "tel",
+        "internalName": "phone1",
+        "label": "Local phone with area code",
+        "required": false
+      },
+      {
+        "type": "tel",
+        "internalName": "phone2",
+        "label": "Mobile phone with area code",
+        "required": false
+      },
+      {
+        "type": "tel",
+        "internalName": "dsn",
+        "label": "DSN",
+        "required": false
+      },
+      {
+        "type": "textbox",
+        "internalName": "location",
+        "label": "Location/Room",
+        "required": false
+      },
+      {
+        "type": "url",
+        "internalName": "website",
+        "label": "Website",
+        "required": false
+      },
+      {
+        "type": "textbox",
+        "internalName": "tooltip",
+        "label": "Tooltip (text displayed on hoverover)",
+        "required": false
+      }
+    ]
   }
 }

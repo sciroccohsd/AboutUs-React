@@ -6,10 +6,8 @@ import { BaseWebPartContext, WebPartContext } from '@microsoft/sp-webpart-base';
 import { Form } from '@pnp/sp/forms';
 
 import DataFactory from './DataFactory';
-import CustomDialog from './CustomDialog';
 import * as FormControls from './FormControls';
 import AboutUsForm, { IAboutUsFormProps } from "./AboutUsForm";
-import AboutUsForms from './AboutUsForm';
 import { IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
 
 export interface IAboutUsAppProps {
