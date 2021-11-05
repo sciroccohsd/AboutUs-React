@@ -1,3 +1,4 @@
+// About-Us custom new and edit form
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
 import { find, trim, escape, assign } from 'lodash';
@@ -7,8 +8,11 @@ import { WebPartContext, BaseWebPartContext } from '@microsoft/sp-webpart-base';
 import DataFactory, { IDataFactoryFieldInfo, IFieldUrlValue, IUserInfoItem } from './DataFactory';
 import CustomDialog from './CustomDialog';
 import * as FormControls from './FormControls';
+import * as AboutUsDisplay from './AboutUsDisplay';
+import AboutUsMicroForm from './AboutUsMicroForm';
 
 import { CommandBarButton, 
+    ICommandBarItemProps, 
     IContextualMenuItem, 
     IDropdownOption,
     IStackStyles,
@@ -23,13 +27,14 @@ import { DateConvention, TimeConvention, TimeDisplayControlType } from '@pnp/spf
 import { IItemAddResult, IItemUpdateResult, _Items } from '@pnp/sp/items/types';
 import { PermissionKind } from '@pnp/sp/security';
 import "@pnp/sp/security";
-import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption } from '../AboutUsAppWebPart';
+import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption, isInRange_numDays, sleep } from '../AboutUsAppWebPart';
 
+//#region INTERFACES, TYPES & ENUMS
 export interface IAboutUsFormProps {
     ctx: WebPartContext;
     list: DataFactory;
     form: "new" | "edit";
-    webpart: IAboutUsAppWebPartProps;
+    properties: IAboutUsAppWebPartProps;
     history?: History;
     itemId?: number;
 }
@@ -52,6 +57,17 @@ export interface IAboutUsUserValue {
     control: string[];   // [user.Login || user.Email, ...]
 }
 
+export type TAboutUsComplexData = Record<string, any>;
+export interface IAboutUsComplexValue {
+    sp: string;  // JSON.stringify(data)
+    control: TAboutUsComplexData | TAboutUsComplexData[];  // JSON.parse(data)
+}
+
+export interface IAboutUsKeywordsValue {
+    sp: string;
+    control: string[];
+}
+
 enum DISPLAY_STATE {
     "loading",
     "invalid",
@@ -71,12 +87,13 @@ interface IAboutUsFormState {
 
     errorMessage: string;
 }
+//#endregion
 
 
 export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAboutUsFormState & any, {}> {
 //#region PROPERTIES
     private baseComponentContext: BaseWebPartContext = null;
-    private listItem: {[prop: string]: any} = null;
+    private listItem: Record<string, any> = null;
     private fieldsThatHaveBeenModified: string[] = [];   // list of internal field names that have been modified/updated
 
     private _htmlNode = document.createElement("div");
@@ -84,7 +101,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     private valueStateKeyPrefix = "valueState_";
 //#endregion
 
-//#region CONSTRUCTOR
+//#region RENDER
     constructor(props) {
         super(props);
 
@@ -104,75 +121,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         };
 
     }
-//#endregion
     
-//#region RENDER
-    public async componentDidMount() {
-        let _item = null;
-        await this.setCurrentUserFlags();
-
-        if (this.props.form === "new") {
-            this.setState({"display": DISPLAY_STATE.ready});
-            return;
-
-        } else if (this.props.form === "edit") {
-            // edit form: need to get list item data
-            this.setState({"display": DISPLAY_STATE.loading});
-
-            const $select = ["Id", "ID"],
-                $expand = [];
-
-            this.props.list.fields.forEach(field => {
-                switch (field["odata.type"]) {
-                    case "SP.FieldLookup":
-                        $select.push(field.InternalName);
-                        $select.push(field.InternalName + "Id");
-                        $select.push(field.InternalName + "/ID");
-                        $select.push(field.InternalName + "/" + field.LookupField);
-
-                        $expand.push(field.InternalName);
-                        break;
-
-                    case "SP.FieldUser":
-                        $select.push(field.InternalName);
-                        $select.push(field.InternalName + "Id");
-                        $select.push(field.InternalName + "/ID");
-                        $select.push(field.InternalName + "/Title");
-                        $select.push(field.InternalName + "/Name");
-                        $select.push(field.InternalName + "/EMail");
-
-                        $expand.push(field.InternalName);
-                        break;
-                
-                    default:
-                        $select.push(field.InternalName);
-                        break;
-                }
-            });
-
-            // if item ID was passed use that first
-            if (typeof this.props.itemId === "number") {
-                const apiItems = this.props.list.api.items.getById(this.props.itemId);
-                _item = await apiItems
-                    .select.apply(apiItems, $select)
-                    .expand.apply(apiItems, $expand)
-                    .get();
-                if (_item && _item.Id) this.listItem = _item;
-            }
-
-            // debug
-            AboutUsForms.DEBUG("this.listItem:", this.listItem);
-
-            // check to see if an item exists
-            if (this.listItem !== null) {
-                this.setState({"display": DISPLAY_STATE.ready});
-
-            } else {
-                // item does not exist or ID/Office is invalid
-                this.setState({"display": DISPLAY_STATE.invalid});
-            }
-        }
-    }
     public render(): React.ReactElement<IAboutUsFormProps> {
         this.baseComponentContext = this.props.ctx as any;
         return (
@@ -194,20 +143,83 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         );
     }
 
+    public async componentDidMount() {
+        // let _item = null;
+        await this.setCurrentUserFlags();
+
+        if (this.props.form === "new") {
+            this.setState({"display": DISPLAY_STATE.ready});
+            return;
+
+        } else if (this.props.form === "edit") {
+            // edit form: need to get list item data
+            this.setState({"display": DISPLAY_STATE.loading});
+
+            // const $select = ["Id", "ID"],
+            //     $expand = [];
+
+            // this.props.list.fields.forEach(field => {
+            //     switch (field["odata.type"]) {
+            //         case "SP.FieldLookup":
+            //             $select.push(field.InternalName);
+            //             $select.push(field.InternalName + "Id");
+            //             $select.push(field.InternalName + "/ID");
+            //             $select.push(field.InternalName + "/" + field.LookupField);
+
+            //             $expand.push(field.InternalName);
+            //             break;
+
+            //         case "SP.FieldUser":
+            //             $select.push(field.InternalName);
+            //             $select.push(field.InternalName + "Id");
+            //             $select.push(field.InternalName + "/ID");
+            //             $select.push(field.InternalName + "/Title");
+            //             $select.push(field.InternalName + "/Name");
+            //             $select.push(field.InternalName + "/EMail");
+
+            //             $expand.push(field.InternalName);
+            //             break;
+                
+            //         default:
+            //             $select.push(field.InternalName);
+            //             break;
+            //     }
+            // });
+
+            // // if item ID was passed use that first
+            // if (typeof this.props.itemId === "number") {
+            //     const apiItems = this.props.list.api.items.getById(this.props.itemId);
+            //     _item = await apiItems
+            //         .select.apply(apiItems, $select)
+            //         .expand.apply(apiItems, $expand)
+            //         .get();
+            //     if (_item && _item.Id) this.listItem = _item;
+            // }
+
+            this.listItem = await this.props.list.getItemById_expandFields(this.props.itemId);
+
+            // debug
+            LOG("this.listItem:", this.listItem);
+
+            // check to see if an item exists
+            if (this.listItem !== null) {
+                this.setState({"display": DISPLAY_STATE.ready});
+
+            } else {
+                // item does not exist or ID/Office is invalid
+                this.setState({"display": DISPLAY_STATE.invalid});
+            }
+        }
+    }
+
     private InvalidItem(): React.ReactElement {
         return (
             <div className={styles.aboutUsApp}>
-                <div className={styles.container}>
-                    <div className={styles.row}>
-                        <div className={styles.column}>
-                            <h3>Invalid item ID or Office Symbol</h3>
-                            <p>Unable to retrieve About-Us item. 
-                                Please check to ensure the item ID is correct. 
-                                Please contact the administrators [ADD_ADMIN_MAILTO] if you have any question.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <h3>Invalid item ID or Office Symbol</h3>
+                <p>Unable to retrieve About-Us item. 
+                    Please check to ensure the item ID is correct. 
+                    Please contact the administrators [ADD_ADMIN_MAILTO] if you have any question.
+                </p>
             </div>
         );
     }
@@ -232,20 +244,12 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         this.props.list.fields.forEach( field => {
             try{
                 const valueState = this.ensureValueState_for(field.InternalName, field.DefaultValue);
-                // init values should be the default values
-                // let valueState = this.getValueState_by_InternalName(field.InternalName);
-                // if (valueState === null) {
-                //     // if null, create the value state
-                //     valueState = this.initializeFieldValueState(field.InternalName, field.DefaultValue || null);
-                //     // keep track of all the newly created value states
-                //     valueStates[field.InternalName] = valueState;
-                // }
 
                 let element = this.createFieldControl(field, valueState);
                 if (element) elements.push(element);
 
             } catch(er) {
-                AboutUsForms.DEBUG("ERROR: newForm()", field, er);
+                LOG("ERROR: newForm()", field, er);
             }
         });
 
@@ -274,7 +278,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 if (element) elements.push(element);
 
             } catch(er) {
-                AboutUsForms.DEBUG("ERROR: editForm()", field, er);
+                LOG("ERROR: editForm()", field, er);
             }
         });
 
@@ -297,45 +301,81 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @returns Form element with with label, required asterisk, field, description, & error text elements.
      */
     private createFieldControl(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState): React.ReactElement {
-        let element: React.ReactElement;
 
-        ///TODO: custom form controls
+        /// custom form controls
+        const displayControls: Record<string, React.ComponentClass<AboutUsDisplay.IAboutUsComplexDataDisplayProps>> = {
+            "Tasks": AboutUsDisplay.TasksDisplay,
+            "Bios": AboutUsDisplay.BiosDisplay,
+            "Links": AboutUsDisplay.LinksDisplay,
+            "SOP": AboutUsDisplay.SOPDisplay,
+            "Contacts": AboutUsDisplay.ContactsDisplay
+        };
+
+        switch (field.InternalName) {
+            case "Tasks":
+            case "Bios":
+            case "Links":
+            case "SOP":
+            case "Contacts":
+                // use the default ComplexData type controls and display
+                // ComplexData type: Uses a micro-form (from AboutUsListTemplate.json) to gather data.
+                //  Pass in the AboutUsDisplay control to render the items differently
+                if (!valueState.value || typeof valueState.value === "string") {
+                    valueState.value = this.createValueState_ComplexData(valueState.value);
+                }
+
+                // get the display control for this specific
+                const displayControl = displayControls[field.InternalName];
+
+                // create custom complex data control
+                if (displayControl) {
+                    return this.customFieldComplexData(field, valueState, displayControl);
+                } else {
+                    LOG(`createFieldControl() > Custom Form Control: Could not find the AboutUsDisplay control type for ${field.InternalName}. Used default rendering instead.`, field);
+                }
+
+                break;
+
+            case "Keywords":
+                if (!valueState.value || typeof valueState.value === "string") {
+                    valueState.value = this.createValueState_Keywords(valueState.value);
+                }
+
+                return this.customFieldKeywords(field, valueState);
+
+            case "BroadcastDate":
+                return null;
+        }
         
         // default form controls
         switch (field["odata.type"]) {
             case "SP.FieldText":
-                element = this.spFieldText(field, valueState);
-                break;
+                return this.spFieldText(field, valueState);
 
             case "SP.FieldNumber":
                 valueState.value = this.stringToNumber(valueState.value);
-                element = this.spFieldNumber(field, valueState);
-                break;
+                return this.spFieldNumber(field, valueState);
 
             case "SP.FieldMultiLineText":
                 if (field.RichText === true) {
                     // is multiline rich text  field
-                    element = this.spRichText(field, valueState);
+                    return this.spRichText(field, valueState);
                 } else {
                     //  basic multiline field
-                    element = this.spFieldText(field, valueState);
+                    return this.spFieldText(field, valueState);
                 }
-                break;
         
             case "SP.FieldChoice":
-                element = this.spFieldChoice(field, valueState);
-                break;
+                return this.spFieldChoice(field, valueState);
                     
             case "SP.FieldMultiChoice":
                 valueState.value = this.createValueState_MultiChoice( valueState.value );
-                element = this.spFieldMultiChoice(field, valueState);
-                break;
+                return this.spFieldMultiChoice(field, valueState);
 
             case "SP.FieldLookup":
                 // valueState.value = selectedId || { results: [selectedId, ...] }
                 valueState.value = this.createValueState_LookupItem(valueState.value,  field.InternalName);
-                element = this.spFieldLookup(field, valueState);
-                break;
+                return this.spFieldLookup(field, valueState);
 
             case "SP.FieldUrl":
                 /* 
@@ -345,13 +385,11 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                     Description: string 
                 }
                 */
-                element = this.spFieldUrl(field, valueState);
-                break;
+                return this.spFieldUrl(field, valueState);
 
             case "SP.FieldDateTime":
                 // valueState.value = string ISO8601 date/time
-                element = this.spFieldDateTime(field, valueState);
-                break;
+                return this.spFieldDateTime(field, valueState);
 
             case "SP.FieldUser":
                 /*
@@ -361,15 +399,12 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 }
                 */
                 valueState.value = this.createValueState_UserValue(valueState.value, field.InternalName);
-                element = this.spFieldUser(field, valueState);
-                break;
+                return this.spFieldUser(field, valueState);
 
             default:
-                AboutUsForms.DEBUG("Unhandled field control:", field["odata.type"], field.InternalName, field);
-                break;
+                LOG("Unhandled field control:", field["odata.type"], field.InternalName, field);
+                return null;
         }
-
-        return element;
     }
 
     /** Create a textbox control.
@@ -479,7 +514,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 showLabels: false,
 
                 errorMessage: valueState.errorMessage,
-                //onGetErrorMessage: (newDate) => {AboutUsForms.DEBUG("spFieldDateTime > onGetErrorMessage", newDate); return "";},
+                //onGetErrorMessage: (newDate) => {LOG("spFieldDateTime > onGetErrorMessage", newDate); return "";},
 
                 onChange: newDate => this.datetime_onChange(newDate, field.InternalName)
             };
@@ -631,6 +666,58 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         return React.createElement(FormControls.PeoplePickerControl, props);
     }
+
+    /** Create a Custom Complex Data control. Array of JSON data that normally requires a micro-form.
+     * @param field Field information
+     * @param valueState ValueState object for this field
+     * @returns Form element with with label, required asterisk, field, description, & error text elements.
+     */
+    private customFieldComplexData(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState, displayControl: React.ComponentClass<any>): React.ReactElement {
+        const fieldOption = this.getFieldWebPartOptions_by_InternalName(field.InternalName),
+            props = {
+                disabled: valueState.disabled,
+                required: field.Required || fieldOption.required,
+                label: field.Title,
+                description: field.Description,
+                values: valueState.value.control,
+                errorMessage: valueState.errorMessage,
+
+                displayControl: displayControl,
+
+                showEditControls: true,
+                onAdd: () => { this.complexData_onAdd(field.InternalName); },
+                onEdit: (ndx: number) => { this.complexData_onEdit(field.InternalName, ndx); },
+                onOrderChange: (oldIndex: number, newIndex: number) => { this.reorderValueState_ArrayData(field.InternalName, oldIndex, newIndex); },
+                onDelete: (ndx: number)=>{ this.arrayData_onDelete(field.InternalName, ndx); },
+                extraButtons: (field.InternalName === "Bios") ? this.commandbarBroadcastButton.bind(this) : null
+            };
+
+        return React.createElement(FormControls.CustomControlComplexData, props);
+    }
+
+    /** Create a Custom 'Tasks' control.
+     * @param field Field information
+     * @param valueState ValueState object for this field
+     * @returns Form element with with label, required asterisk, field, description, & error text elements.
+     */    
+    private customFieldKeywords(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState): React.ReactElement {
+        const fieldOption = this.getFieldWebPartOptions_by_InternalName(field.InternalName),
+            props = {
+                disabled: valueState.disabled,
+                required: field.Required || fieldOption.required,
+                label: field.Title,
+                description: field.Description,
+                values: valueState.value.control,
+                errorMessage: valueState.errorMessage,
+
+                showEditControls: true,
+                onAdd: (value) => { return this.arrayData_onAdd(field.InternalName, value); },
+                onOrderChange: (oldIndex: number, newIndex: number) => { this.reorderValueState_ArrayData(field.InternalName, oldIndex, newIndex); },
+                onDelete: (ndx: number)=>{ this.arrayData_onDelete(field.InternalName, ndx); }
+            };
+
+        return React.createElement(FormControls.CustomControlKeywords, props);
+    }
 //#endregion
     
 //#region EVENT HANDLERS
@@ -656,7 +743,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! input_change():", evt.target.id, er);
+            LOG("ERROR! input_change():", evt.target.id, er);
         }
     }
 
@@ -687,7 +774,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! richtext_change():", internalName, er);
+            LOG("ERROR! richtext_change():", internalName, er);
         }
         
         return value;
@@ -744,7 +831,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! dropdown_change():", evt.target.id, er);
+            LOG("ERROR! dropdown_change():", evt.target.id, er);
         }
     }
 
@@ -773,7 +860,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! lookup_onSelectedItem():", internalName, er);
+            LOG("ERROR! lookup_onSelectedItem():", internalName, er);
         }
     }
 
@@ -804,7 +891,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! urlfield_onChange():", internalName, er);
+            LOG("ERROR! urlfield_onChange():", internalName, er);
         }
             
     }
@@ -834,7 +921,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! datetime_onChange():", internalName, er);
+            LOG("ERROR! datetime_onChange():", internalName, er);
         }
     }
 
@@ -862,8 +949,97 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.setValueState_for(internalName, valueState);
 
         } catch(er) {
-            AboutUsForms.DEBUG("ERROR! peoplePicker_onChange():", internalName, er);
+            LOG("ERROR! peoplePicker_onChange():", internalName, er);
         }
+    }
+
+    /** Complex data Add Button event handler.
+     * Opens a micro form to populate the array of values
+     */
+    private complexData_onAdd(internalName: string) {
+        // field uses a mico-form to help gather data.
+        // Requires a "fieldMicroForms" entry in the "AboutUsListTemplate.json"
+        const microForm = this.generateMicroForm(internalName);
+
+        // make sure there is a micro form for this field
+        if (!microForm) return;
+
+        // show form and wait for response
+        microForm.show().then(value => {
+            this.updateValueState_ArrayData(internalName, value);
+        });
+    }
+
+    /** Complex data Edit item event handler
+     * @param ndx Index of item that was clicked
+     */
+    private complexData_onEdit(internalName: string, ndx: number) {
+        // field uses a mico-form to help gather data.
+        // Requires a "fieldMicroForms" entry in the "AboutUsListTemplate.json"
+        const valueState = this.getValueState_by_InternalName(internalName),
+            microForm = this.generateMicroForm(internalName, valueState.value.control[ndx]);
+
+        // make sure there is a micro form for this field
+        if (!microForm) return;
+
+        // show form and wait for response
+        microForm.show().then(value => {
+            this.updateValueState_ArrayData(internalName, value, ndx);
+        });
+    }
+
+    /** Add value to array data
+     * @param internalName Field InternalName used as the fields reference ID
+     * @param value New value to to the array
+     * @returns Input:Textbox value state
+     */
+    private arrayData_onAdd(internalName: string, value: string): FormControls.ICustomControlKeywordsState {
+        const valueState = this.getValueState_by_InternalName(internalName),
+            state = {
+                value: ""
+            };
+
+        // if null or empty, don't save
+        if (!value || trim(value).length === 0) {
+            state.value = value;
+            valueState.errorMessage = "Empty value!";
+            this.setValueState_for(internalName, valueState);
+            return state;
+        }
+
+        value = trim(value);
+        const lcValue = value.toLowerCase();
+
+        // if duplicate, don't save
+        for (let i = 0; i < valueState.value.control.length; i++) {
+            const existingValue = trim(valueState.value.control[i]).toLowerCase();
+            if (existingValue === lcValue) {
+                state.value = value;
+                valueState.errorMessage = "Duplicate value!";
+                this.setValueState_for(internalName, valueState);
+                return state;
+            }
+        }
+
+        // save value to value state
+        valueState.value.control.push(value);
+        valueState.value.sp = JSON.stringify(valueState.value.control);
+        valueState.errorMessage = "";
+        this.setValueState_for(internalName, valueState);
+
+        // return new textbox state
+        return state;
+    }
+
+    /** Array data Delete item event handler
+     * @param ndx Index of item that was clicked
+     */
+    private arrayData_onDelete(internalName: string, ndx: number) {
+        CustomDialog.confirm("Are you sure you want to delete this item?").then(response => {
+            if (response === true) {
+                this.updateValueState_ArrayData(internalName, null, ndx, true);
+            }
+        });
     }
 //#endregion
     
@@ -921,7 +1097,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 break;
 
             default:
-                AboutUsForms.DEBUG("Unhandled field validation:", field["odata.type"], field.InternalName, value);
+                LOG("Unhandled field validation:", field["odata.type"], field.InternalName, value);
                 break;
         }
 
@@ -1187,11 +1363,18 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 if (userCanUpdate) await this.props.list.updateContentManagers(this.listItem.Id);
 
                 // if successful, go back
-                alert("Added!");// this.goBack();
+                alert("Item was added or updated! Navigate back.");// this.goBack();
 
             } catch(er) {
-                AboutUsForms.DEBUG("ERROR! save():", er);
+                LOG("ERROR! save():", er);
                 this.setState({"errorMessage": `Unable to ${ this.props.form === "new" ? "create" : "update" } item. ${er}`});
+            }
+        } else {
+            // if on edit form and user clicked 'save' and no data needed to be updated, then just go back
+            if (this.props.form === "edit") {
+                // go back
+                alert("Nothing was changed! Navigate back.");// this.goBack();
+
             }
         }
 
@@ -1218,7 +1401,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 } catch (er) {
                     modalMsg.close();
                     CustomDialog.alert("Unable to delete item. See console for details.", "ERROR!");
-                    AboutUsForms.DEBUG(`ERROR! Unable to delete item '${ this.listItem.Title } (ID: ${ this.listItem.Id })'`, er);
+                    LOG(`ERROR! Unable to delete item '${ this.listItem.Title } (ID: ${ this.listItem.Id })'`, er);
                 }
 
             }
@@ -1300,9 +1483,8 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         this.setState({[key]: valueState});
         // setState needs just a momemt to update the state. 
         // not required but helps if you need to reference it right away.
-        await this.sleep(0);
+        await sleep(0);
     }
-
 
     /** Creates the MultiChoice object (IAboutUsMultiChoiceItemValue)
      * @param choices Choice value or array of values.
@@ -1454,9 +1636,244 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         return value;
     }
+
+    /** Creates the ComplesData object (IAboutUsComplexValue)
+     * @param data Stringified representation of the complex data or the complex data type itself
+     * @returns ValueState value with values for the control and SP API.
+     */
+    private createValueState_ComplexData(data: string | TAboutUsComplexData | IAboutUsComplexValue): IAboutUsComplexValue {
+        const value: IAboutUsComplexValue = {
+            "control": [],
+            "sp": ""
+        };
+
+        // exit early if complex data array was passed
+        if (data && (typeof data === "object") && "conrol" in data && "sp" in data) return data as IAboutUsComplexValue;
+
+        // exit early if null or empty
+        if (!data || (data as string | TAboutUsComplexData).length === 0) return value;
+
+        // parse the data based on the type passed
+        if (typeof data === "string") {
+            data = trim(data);
+
+            if ((/(^\[).*(\]$)/gi).test(data)) {
+                // data is stringified array
+                data = JSON.parse(data);
+            }
+        }
+        
+        if (data instanceof Array) {
+            // remove empty items
+            data.forEach(item => {
+                if (item && (typeof item === "object") && Object.keys(item).length > 0) value.control.push(item);
+            });
+        } 
+
+        value.sp = (value.control.length > 0) ? JSON.stringify(value.control) : "";
+
+        return value;
+    }
+
+    /** Creates the string array value with SP stringified value.
+     * @param data Stringified representation of the string array or the 'Enterprise Keyword' string list.
+     * @returns ValueState value with values for the control and SP API.
+     */
+    private createValueState_Keywords(data: string | string[] | IAboutUsKeywordsValue): IAboutUsKeywordsValue {
+        const value: IAboutUsKeywordsValue = {
+            "control": [],
+            "sp": ""
+        };
+
+        // exit early if keyword valut state was passed
+        if (data && (typeof data === "object") && "conrol" in data && "sp" in data) return data;
+
+        // exit early if null or empty
+        if (!data || (data as string | string[]).length === 0) return value;
+
+        // parse data based on the type passed
+        if (typeof data === "string") {
+            data = trim(data);
+
+            // what type of string?
+            if ((/(^\[).*(\]$)/gi).test(data)) {
+                // data is a stringified array
+                data = JSON.parse(data);
+
+            } else {
+                // data is a list of words. possibly list of Enterprise Keywords
+                data = data.split(";").map(keyword => keyword.split("|")[0]);
+
+            }
+        } 
+        
+        if (data instanceof Array) {
+            // remove empty items
+            data.forEach(keyword => {
+                if (typeof keyword === "string") {
+                    keyword = trim(keyword);
+                    if (keyword.length > 0) value.control.push(keyword);
+                }
+            });
+        }
+        
+        value.sp = (value.control.length > 0) ? JSON.stringify(value.control) : "";
+
+        return value;
+    }
+
+    /** Add, update, or delete complex data item.
+     * @param internalName Field InternalName used as the field's reference ID
+     * @param value New or updated value. Pass null, if deleting the item.
+     * @param ndx Index of the item to update or delete.
+     * @param deleteItem Flag to delete item. Note: ndx must be valid.
+     */
+    private updateValueState_ArrayData(internalName: string, value?: any, ndx?: number, deleteItem?: boolean) {
+        const valueState = this.getValueState_by_InternalName(internalName);
+
+        if (!("control" in valueState.value)) valueState.value = {"sp": null, "control": []};
+        if (!(valueState.value.control instanceof Array)) valueState.value.control = [];
+
+        if (typeof ndx === "number" && ndx > -1 && ndx < valueState.value.control.length) {
+            // valid index. update or delete?
+
+            if (deleteItem) {
+                // delete the item
+                valueState.value.control.splice(ndx, 1);
+
+            } else if (value) {
+                // update the item
+                valueState.value.control[ndx] = value;
+            }
+
+        } else if (value) {
+            // add the item
+            valueState.value.control.push(value);
+        }
+
+        // update SP API value
+        valueState.value.sp = JSON.stringify(valueState.value.control);
+
+        // add field to modifed list
+        this.fieldWasModified(internalName);
+
+        // trigger update
+        this.setValueState_for(internalName, valueState);
+
+        LOG("updateValueState_ComplexData(): valueState", valueState);
+    }
+
+    /** Rearranges the order of array objects
+     * @param internalName Field InternalName used as the field's reference ID
+     * @param oldIndex Old index of the item.
+     * @param newIndex New index for the item that moved.
+     */
+     private reorderValueState_ArrayData(internalName: string, oldIndex: number, newIndex: number) {
+        const valueState = this.getValueState_by_InternalName(internalName);
+
+        if (!("control" in valueState.value)) valueState.value = {"sp": null, "control": []};
+        if (!(valueState.value.control instanceof Array)) valueState.value.control = [];
+
+        const value = valueState.value.control;
+
+        if (value && value instanceof Array) {
+            // update valueState with new value
+            valueState.value.control = AboutUsDisplay.rearrangeArray(value, oldIndex, newIndex);
+            valueState.value.sp = JSON.stringify(valueState.value.control);
+
+            // add field to modifed list
+            this.fieldWasModified(internalName);
+        
+            // trigger update
+            this.setValueState_for(internalName, valueState);
+        }    
+    }
 //#endregion
 
 //#region HELPERS
+    /** Creates the Broadcast button for each of the complex data items.
+     * @param ndx Index of the complex data item
+     * @param value Value of the complex data item
+     * @returns Command Bar Items array
+     */
+    private commandbarBroadcastButton(ndx: number, value: TAboutUsComplexData): ICommandBarItemProps[] {
+        // broadcast button
+        const extraButtons = [],
+            broadcastDate = (value.broadcastDate) ? new Date(value.broadcastDate) : null,
+            broadcasting = isInRange_numDays(broadcastDate, this.props.properties.broadcastDays);
+        
+        extraButtons.push({
+            key: `btnBroadcast${ndx}`,
+            text: (broadcasting) ? "Stop broadcasting" : "Start broadcasting",
+            iconProps: { iconName: (broadcasting) ? "UserRemove" : "NetworkTower" },
+            iconOnly: true,
+            ariaLabel: (broadcasting) ? "Stop broadcasting bio" : "Start broadcasting bio",
+            buttonStyles: { root: { "border": "1px solid", "border-radius": "3px;" }},
+            onClick: ()=>{ this.updateBroadcastDate("Bios", ndx, (broadcasting) ? null : new Date()); }
+        });
+
+        return extraButtons;
+    }
+
+    /** Updates the BroadcastDate field with the most current date and updates the complex data field.
+     * @param internalName Field InternalName used as the field's reference ID
+     * @param ndx Index for the complex data item
+     * @param newBroadcasatDate Updated broadcast date
+     */
+    public updateBroadcastDate(internalName: string, ndx: number, newBroadcasatDate: Date) {
+        const valueState = this.getValueState_by_InternalName(internalName),
+            broadcastDateFieldName = "BroadcastDate",
+            broadcastDateValueState = this.getValueState_by_InternalName(broadcastDateFieldName),
+            startingDate = new Date(0);
+
+        // make sure BroadcastDate field is created.
+        if (!broadcastDateValueState) {
+            LOG("ERROR! 'BroadcastDate' date field is missing. Could not update broadcast values.");
+            return;
+        }
+
+        let mostCurrentDate = new Date(startingDate.toISOString());
+
+        // loop through each item's broadcast date. get the most current date
+        valueState.value.control.forEach((item, i) => {
+            // update item if matching
+            if (i === ndx) item.broadcastDate = (newBroadcasatDate) ? newBroadcasatDate.toISOString() : "";
+            const itemBroadcastDateValue = item.broadcastDate,
+                itemBroadcastDate = (itemBroadcastDateValue) ? new Date(itemBroadcastDateValue) : null;
+
+            if (itemBroadcastDate && itemBroadcastDate > mostCurrentDate) {
+                mostCurrentDate = new Date(itemBroadcastDateValue);
+            }
+        });
+
+        // set BroadcastDate field value
+        broadcastDateValueState.value = (mostCurrentDate > startingDate) ? mostCurrentDate.toISOString() : null;
+
+        // update BroadcastDate value state
+        this.fieldWasModified(broadcastDateFieldName);
+        this.setValueState_for(broadcastDateFieldName, broadcastDateValueState);
+
+        // reset bio field 'sp' value
+        valueState.value.sp = JSON.stringify(valueState.value.control);
+
+        // update bio value state
+        this.fieldWasModified(internalName);
+        this.setValueState_for(internalName, valueState);
+    }
+
+    /** Generates a new MicroForm based on the InternalName passed.  
+     * @param internalName Field InternalName used as the fields's reference ID.
+     * @param formValues Default form values. If null, form will be populated with field default values.
+     * @returns New MicroForm instance for internal name passed.  (async) .show() returns the form values as JSON or null if cancelled.
+     */
+    private generateMicroForm(internalName: string, formValues?: Record<string, any>): AboutUsMicroForm {
+        const field = this.getField_by_InternalName(internalName),
+            template = (internalName in DataFactory.listTemplate.fieldMicroForms) ? DataFactory.listTemplate.fieldMicroForms[internalName] : null,
+            microForm = (template) ? new AboutUsMicroForm(`${field.Title} Form`, template, formValues) : null;
+
+        return microForm;
+    }
+
     /** Get list item value for a specif field. Assumes the list item's data was already retrieved.
      * @param internalName Field InternalName used as the fields's reference ID.
      * @returns List item value for the field
@@ -1496,7 +1913,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             controlled: false                   // default value
         };
 
-        if (internalName in this.props.webpart.fields) fieldOption = this.props.webpart.fields[internalName];
+        if (internalName in this.props.properties.fields) fieldOption = this.props.properties.fields[internalName];
 
         return fieldOption;
     }
@@ -1582,35 +1999,26 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         });
     }
 
-    /** Pauses the script for a set amount of time.
-     * @param milliseconds Amount of milliseconds to sleep.
-     * @returns Promise
-     * @example
-     * await sleep(1000);  // sleep for 1 second then continue
-     * // or
-     * sleep(500).then(() => {});  // sleep for half second then run function
-     */
-    private sleep(milliseconds: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, milliseconds));
-    }
-
-    /** Prints our debug messages. Decorated console.info() or console.error() method.
-     * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
-     */
-    public static DEBUG(...args: any[]) {
-        // is an error message, if first argument is a string and contains "error" string.
-        const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-        args = ["(About-Us AboutUsForm.tsx)"].concat(args);
-
-        if (window && window.console) {
-            if (isError && console.error) {
-                console.error.apply(null, args);
-
-            } else if (console.info) {
-                console.info.apply(null, args);
-
-            }
-        }
-    }
 //#endregion
 }
+
+//#region PRIVATE LOG
+/** Prints out debug messages. Decorated console.info() or console.error() method.
+ * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
+ */
+ function LOG(...args: any[]) {
+    // is an error message, if first argument is a string and contains "error" string.
+    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
+    args = ["(About-Us AboutUsForm.tsx)"].concat(args);
+
+    if (window && window.console) {
+        if (isError && console.error) {
+            console.error.apply(null, args);
+
+        } else if (console.info) {
+            console.info.apply(null, args);
+
+        }
+    }
+}
+//#endregion

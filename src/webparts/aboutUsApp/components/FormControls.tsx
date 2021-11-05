@@ -1,3 +1,4 @@
+// React and MS Fabric UI controls for form fields
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
 import { assign } from 'lodash';
@@ -7,9 +8,15 @@ import { Dropdown,
     ILabelProps,
     ISpinnerProps,
     ITextFieldProps, 
-    Label, 
+    Label,
+    CommandBarButton,
+    ActionButton,
     Spinner, 
-    TextField } from 'office-ui-fabric-react';
+    TextField, 
+    IButtonProps,
+    ITooltipHostProps,
+    IconButton,
+    TooltipHost} from 'office-ui-fabric-react';
 
 // https://pnp.github.io/sp-dev-fx-controls-react/index.html
 //> npm install @pnp/spfx-controls-react --save
@@ -24,11 +31,14 @@ import { ComboBoxListItemPicker,
 import { IRichTextProps, RichText } from '@pnp/spfx-controls-react/lib/RichText';
 import { PeoplePicker, PrincipalType, IPeoplePickerProps } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import { IFieldUrlValue } from './DataFactory';
+import * as AboutUsDisplay from './AboutUsDisplay';
 
+//#region EXPORTS
 export default ReactControls;
 export * from '@pnp/spfx-controls-react/lib/RichText';
 export * from '@pnp/spfx-controls-react/lib/PeoplePicker';
 export * from '@pnp/spfx-controls-react/lib/Toolbar';
+//#endregion
 
 
 //#region WEB PART PLACEHOLDER: "Configure your web part"
@@ -92,11 +102,11 @@ export class DescriptionElement extends React.Component<IDescriptionProps> {
         return (
             <>
                 { this.props.text ? 
-                    <span className="FormControlsDescription">
+                    <div className="FormControlsDescription">
                         <span className={ `ms-TextField-description ${ styles.description }`}>
                             { this.props.text }
                         </span>
-                    </span>
+                    </div>
                     : null
                 }
             </>
@@ -388,6 +398,146 @@ export class PeoplePickerControl extends React.Component<IPeoplePickerControlPro
                 <DescriptionElement text={this.props.description}/>
             </FieldWrapper>
         );
+    }
+}
+//#endregion
+
+//#region COMPLEX DATA CONTROL
+export interface ICustomControlComplexDataProps extends AboutUsDisplay.IAboutUsComplexDataDisplayProps {
+    displayControl: React.ComponentClass<any>;
+    label: string;
+
+    disabled?: boolean;
+    required?: boolean;
+    description?: string;
+    errorMessage?: string;
+
+    onAdd?: ()=>any;
+}
+
+export class CustomControlComplexData extends React.Component<ICustomControlComplexDataProps> {
+    public render(): React.ReactElement<ICustomControlComplexDataProps> {
+        const addButtonProps: IButtonProps = {
+                iconProps: { iconName: "Add" },
+                text: `Add ${ this.props.label }`,
+                disabled: this.props.disabled,
+                onClick: this.props.onAdd
+            },
+            displayProps: AboutUsDisplay.IAboutUsComplexDataDisplayProps = {
+                values: this.props.values,
+                showEditControls: (this.props.disabled === true) ? false : true,
+                onOrderChange: this.props.onOrderChange,
+                onEdit: this.props.onEdit,
+                onDelete: this.props.onDelete,
+                extraButtons: this.props.extraButtons
+            };
+
+        return (
+            <FieldWrapper>
+                <LabelElement required={ this.props.required }>{ this.props.label }</LabelElement>
+                <div>{ (this.props.disabled !== true) ? React.createElement(ActionButton, addButtonProps) : null }</div>
+                <DescriptionElement text={ this.props.description }/>
+                <ErrorMessageElement text={ this.props.errorMessage }/>
+                <div className={ styles.complexDataDisplayContainer }>
+                    { React.createElement(this.props.displayControl, displayProps) }
+                </div>
+            </FieldWrapper>
+        );
+    }
+}
+//#endregion
+
+//#region TAGS & KEYWORDS CONTROL
+export interface ICustomControlKeywordsProps extends AboutUsDisplay.IAboutUsKeywordsDisplayProps {
+    label: string;
+
+    disabled?: boolean;
+    required?: boolean;
+    description?: string;
+    errorMessage?: string;
+
+    onAdd?: (value: string)=>ICustomControlKeywordsState;
+}
+
+export interface ICustomControlKeywordsState {
+    value: string;
+}
+
+export class CustomControlKeywords extends React.Component<ICustomControlKeywordsProps, ICustomControlKeywordsState> {
+    constructor(props) {
+        super(props);
+
+        this.state = {
+            value: ""
+        };
+    }
+    public render(): React.ReactElement<ICustomControlKeywordsProps> {
+        const addButtonProps: IButtonProps = {
+                iconProps: { iconName: "Add" },
+                disabled: this.props.disabled,
+                onClick: () => { this.setState(this.props.onAdd(this.state.value)); }
+            },
+            tooltipProps: ITooltipHostProps = {
+                content: `Add ${this.props.label}`,
+                id: `ttCustomControlTags-addButton`
+            },
+            displayProps: AboutUsDisplay.IAboutUsKeywordsDisplayProps = {
+                values: this.props.values,
+                showEditControls: (this.props.disabled === true) ? false : true,
+                onOrderChange: this.props.onOrderChange,
+                onDelete: this.props.onDelete
+            };
+
+        return (
+            <FieldWrapper>
+                <LabelElement required={ this.props.required }>{ this.props.label }</LabelElement>
+                <div className={ styles.textboxWithButtonWrapper }>
+                    <input
+                        className={ styles.textbox }
+                        disabled={this.props.disabled}
+                        value={ this.state.value }
+                        onChange={ evt => this.setState({"value": evt.target.value}) }
+                        onKeyPress={ evt => { if (evt.keyCode === 13 || evt.which === 13) this.setState(this.props.onAdd(this.state.value)); } } />
+                    { (!this.props.disabled) ? 
+                        <TooltipHost content="Add">
+                            { React.createElement(IconButton, addButtonProps) }
+                        </TooltipHost>
+                        : null
+                    }
+                </div>
+                <DescriptionElement text={ this.props.description }/>
+                <ErrorMessageElement text={ this.props.errorMessage }/>
+                <div className={ styles.complexDataDisplayContainer }>
+                    { React.createElement(AboutUsDisplay.KeywordsDisplay, displayProps) }
+                </div>
+            </FieldWrapper>
+        );
+    }
+
+    private textbox_onChange(evt) {
+        this.setState({"value": evt.target.value});
+    }
+}
+//#endregion
+
+
+//#region PRIVATE LOG
+/** Prints out debug messages. Decorated console.info() or console.error() method.
+ * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
+ */
+ function LOG(...args: any[]) {
+    // is an error message, if first argument is a string and contains "error" string.
+    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
+    args = ["(About-Us FormControls.tsx)"].concat(args);
+
+    if (window && window.console) {
+        if (isError && console.error) {
+            console.error.apply(null, args);
+
+        } else if (console.info) {
+            console.info.apply(null, args);
+
+        }
     }
 }
 //#endregion

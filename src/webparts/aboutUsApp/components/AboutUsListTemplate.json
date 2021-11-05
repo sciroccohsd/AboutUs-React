@@ -209,7 +209,20 @@
       "RichText": false,
       "WikiLinking": false
     },
-    
+    {
+      "__metadata": {
+        "type": "SP.FieldDateTime"
+      },
+      "DefaultValue": null,
+      "InternalName": "BroadcastDate",
+      "Required": false,
+      "Title": "Most recent broadcast date",
+      "Description": "App updates this field to the most recent leadership broadcast date.",
+      "FieldTypeKind": 4,
+      "DateTimeCalendarType": 0,
+      "DisplayFormat": 1,
+      "FriendlyDisplayFormat": 1
+    },
     {
       "__metadata": {
         "type": "SP.FieldMultiLineText"
@@ -496,60 +509,60 @@
         "type": "textbox",
         "internalName": "text",
         "label": "Task",
-        "required": true
+        "required": true,
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "auth",
         "label": "Tasking Authority",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "tooltip",
         "label": "Tooltip (text displayed on hoverover)",
-        "required": true
+        "defaultValue": ""
       }
     ],
 
     "Bios": [
       {
-        "type": "hidden",
-        "internalName": "id"
-      },
-      {
         "type": "textbox",
         "internalName": "position",
-        "label": "Position",
-        "required": false
+        "label": "Position or title",
+        "defaultValue": ""
       },
       {
         "type": "url",
         "internalName": "image",
         "label": "Link to image",
-        "required": true
+        "defaultValue": ""
       },
       {
         "type": "url",
         "internalName": "bio",
         "label": "Link to biography",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "name",
         "label": "Display name",
-        "required": true
+        "required": true,
+        "defaultValue": ""
       },
       {
         "type": "textbox",
-        "internalName": "position",
-        "label": "Title or position",
-        "required": false
+        "internalName": "subtitle",
+        "label": "Sub-title",
+        "defaultValue": ""
       },
       {
-        "type": "hidden",
-        "internalName": "broadcastDate"
+        "type": "textbox",
+        "internalName": "broadcastDate",
+        "hidden": true,
+        "defaultValue": ""
       }
     ],
 
@@ -558,25 +571,26 @@
         "type": "url",
         "internalName": "url",
         "label": "Link",
-        "required": true
+        "required": true,
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "text",
         "label": "Display text",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "checkbox",
         "internalName": "target",
         "label": "Open link in a new window",
-        "required": false
+        "defaultValue": false
       },
       {
         "type": "textbox",
         "internalName": "tooltip",
         "label": "Tooltip (text displayed on hoverover",
-        "required": false
+        "defaultValue": ""
       }
     ],
 
@@ -585,25 +599,26 @@
         "type": "url",
         "internalName": "url",
         "label": "Link",
-        "required": true
+        "required": true,
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "text",
         "label": "Display text",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "checkbox",
         "internalName": "target",
         "label": "Open link in a new window",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "tooltip",
         "label": "Tooltip (text displayed on hoverover)",
-        "required": false
+        "defaultValue": ""
       }
     ],
 
@@ -612,67 +627,68 @@
         "type": "textbox",
         "internalName": "text",
         "label": "Name",
-        "required": true
+        "required": true,
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "title",
         "label": "Title or position",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "email",
         "internalName": "email",
         "label": "NIPR Email",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "email",
         "internalName": "email2",
         "label": "SIPR Email",
-        "required": false
+        "defaultValue": ""
       },
       {
-        "type": "email3",
-        "internalName": "email",
+        "type": "email",
+        "internalName": "email3",
         "label": "JWIC Email",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "tel",
         "internalName": "phone1",
         "label": "Local phone with area code",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "tel",
         "internalName": "phone2",
         "label": "Mobile phone with area code",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "tel",
         "internalName": "dsn",
         "label": "DSN",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "location",
         "label": "Location/Room",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "url",
         "internalName": "website",
         "label": "Website",
-        "required": false
+        "defaultValue": ""
       },
       {
         "type": "textbox",
         "internalName": "tooltip",
         "label": "Tooltip (text displayed on hoverover)",
-        "required": false
+        "defaultValue": ""
       }
     ]
   }

@@ -40,20 +40,23 @@
             "text": "Accordian View"
           },
           {
-            "Key": "phone",
+            "key": "phone",
             "text": "Phone Directory"
           },
           {
-            "Key": "datatable",
+            "key": "datatable",
             "text": "Org-Function-Mission Table"
           },
           {
-            "Key": "leadershipbroadcast",
-            "text": "Leadership Broadcast"
+            "key": "broadcast",
+            "text": "Broadcast"
           }
         ],
         "listName": "",
         "ppListName_dropdown": "",
+        "homeTitle": "Home",
+        "appMessage": "",
+        "appMessageIsAlert": false,
         "orgchart_key": {},
         "fields": {
           "OrgType": {
@@ -87,7 +90,8 @@
         },
         "ownerGroup": null,
         "managerGroup": null,
-        "readerGroup": null
+        "readerGroup": null,
+        "broadcastDays": 30
       }
     }
   ],

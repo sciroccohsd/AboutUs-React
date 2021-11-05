@@ -1,7 +1,8 @@
-//> npm install @microsoft/sp-dialog --save
+// SP-Dialog extension for modal alerts, prompts and custom modal forms.
 import { BaseDialog, IDialogShowOptions } from '@microsoft/sp-dialog';
 import styles from './CustomDialog.module.scss';
 
+//#region INTERFACES & ENUMS
 export interface ICustomDialogBody {
     "wrapper": HTMLDivElement;
     "container": HTMLDivElement;
@@ -14,6 +15,7 @@ export interface ICustomDialogField {
     "error": HTMLDivElement;
     "fields": HTMLInputElement[] | HTMLTextAreaElement[] | HTMLSelectElement[] | any[];
 }
+//#endregion
 
 /** Use the premade custom methods (returns Promise) or create your own custom dialog. 
  * - alert(msg, title, showClose); 
@@ -41,6 +43,7 @@ export default class CustomDialog extends BaseDialog {
     private _form: HTMLDivElement = null;
     private _fieldsList: {} = {};
     private _actionsList: {} = {};
+    private _onSubmit: (evt)=>any = (evt) => { this.close(); return false; };
     //#endregion
 
     //#region GETTERS & SETTERS
@@ -77,10 +80,10 @@ export default class CustomDialog extends BaseDialog {
      * const dialog = new CustomDialog("Custom Title", true);
      * await dialog.AddMessage("I'm a custom dialog!").AddCancelAction("Yep!").show();
      */
-    constructor(title: string, showClose: boolean = false) {
+    constructor(title: string, showClose: boolean = false, formAction?: (evt)=>{}) {
         super();
         this._header = this.CreateDialogHeader(title, showClose);
-        this._body = this.CreateDialogBody();
+        this._body = this.CreateDialogBody(formAction);
     }
     //#endregion
 
@@ -167,7 +170,7 @@ export default class CustomDialog extends BaseDialog {
      * @param showClose Show/hide the 'X' close button. Default: false
      * @returns Promise => true, false or null.
      */
-    public static async confirm(msg: string, title: string = "Confirm?", text: {"yes": string, "no": string}, showClose: boolean = false): Promise<boolean> {
+    public static async confirm(msg: string, title: string = "Confirm?", text: {"yes": string, "no": string} = {"yes": "Yes", "no": "No"}, showClose: boolean = false): Promise<boolean> {
         // ensure yes/no text
         if (typeof text !== "object" || text === null) text = {"yes": null, "no": null};
         if (!("yes" in text) || typeof text["yes"] !== "string") text["yes"] = "Yes";
@@ -233,15 +236,20 @@ export default class CustomDialog extends BaseDialog {
      * Ready to append to the dialog container.
      * @returns DIV wrapper, DIV body & DIV actions (actions)
      */
-     private CreateDialogBody(): ICustomDialogBody {
+     private CreateDialogBody(formAction?: (evt)=>{}): ICustomDialogBody {
         const eWrapper: HTMLDivElement = this.CreateElement("div", { "class": `ms-Dialog-inner ${ styles.inner }` }),
+            eForm: HTMLFormElement = this.CreateElement("form", { "action": "javascript:void(0);" }),
             eContainer: HTMLDivElement = this.CreateElement("div", { "class": `ms-Dialog-content ${ styles.innerContent }` }),
             eActions: HTMLDivElement = this.CreateElement("div", { "class": `ms-Dialog-actions ${ styles.actions }` }),
             eActionsRight: HTMLDivElement = this.CreateElement("div", { "class": `ms-Dialog-actionsRight ${ styles.actionsRight }` });
 
         // put elements together
-        eWrapper.append(eContainer, eActions);
+        eWrapper.append(eForm);
+        eForm.append(eContainer, eActions);
         eActions.append(eActionsRight);
+
+        // add form action
+        eForm.addEventListener("submit", evt => { this._onSubmit.call(this, evt); }, false);
 
         return {"wrapper": eWrapper, "container": eContainer, "actions": eActionsRight};
     }
@@ -379,6 +387,43 @@ export default class CustomDialog extends BaseDialog {
         return eWrapper;
     }
 
+    /** Generates a dialog submit button in a SPAN wrapper.
+     * Ready to append to the Actions container.
+     * @param onSubmit Form action event listener
+     * @param label Text displayed on button.
+     * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
+     * @returns SPAN element
+     */
+    private CreateSubmitButton(onSubmit: (evt)=>any = null, label: string, opt: {[key:string]: any} = {}, isPrimaryButton: boolean = true): HTMLSpanElement {
+        if (onSubmit && typeof onSubmit === "function") this._onSubmit = onSubmit;
+        
+        // generate css class for the Button
+        let css: string[] = ["ms-Button"];
+
+        // add default customDialog class
+        css.push(styles.buttonRoot);
+        if (isPrimaryButton) css.push(styles.buttonPrimary);
+
+        // append user-defined classes
+        if ("class" in opt) css.push(opt["class"]);
+
+        opt["class"] = css.join(" ");
+
+        // add element type
+        if (!("type" in opt)) opt["type"] = "submit";
+        if (!("value" in opt)) opt["value"] = label || "submit";
+
+        // remove "text" property from attr.
+        if ("text" in opt) delete opt["text"];
+
+        const eWrapper: HTMLSpanElement = this.CreateElement("span", { "class": `ms-Dialog-action ${ styles.action }`}),
+            eButton: HTMLInputElement = this.CreateElement("input", opt);
+
+        eWrapper.append(eButton);
+
+        return eWrapper;
+    }
+
     /** Generates a standard 'OK' dialog action button in a wrapper that closes the dialog.
      * Ready to append to the Actions container.
      * @param label Text displayed on button. Default: 'OK'.
@@ -409,6 +454,18 @@ export default class CustomDialog extends BaseDialog {
      */
     public AddAction(label: string, opt: {} = {}, isPrimaryButton: boolean = false): CustomDialog {
         const eButton = this.CreateActionButton(label, opt, isPrimaryButton);
+        this._body.actions.append(eButton);
+        return this;
+    }
+
+    /** Add a input:submit button to this dialog.
+     * @param onSubmit Form action event listener
+     * @param label Text displayed on button.
+     * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
+     * @returns self
+     */
+    public AddSubmit(onSubmit: (evt)=>any = null, label: string = "Submit", opt: {} = {}, isPrimaryButton: boolean = true): CustomDialog {
+        const eButton = this.CreateSubmitButton(onSubmit, label, opt, isPrimaryButton);
         this._body.actions.append(eButton);
         return this;
     }

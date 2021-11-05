@@ -12,7 +12,8 @@ import {
     PropertyPaneHorizontalRule,
     PropertyPaneLabel,
     PropertyPaneLink,
-    PropertyPaneTextField
+    PropertyPaneTextField,
+    PropertyPaneToggle
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 
@@ -24,11 +25,8 @@ import DataFactory, { IListValidationResults, TAboutUsRoleDef } from './componen
 import CustomDialog from './components/CustomDialog';
 import { trim, escape, find } from 'lodash';
 
-// declare global {
-//     interface Window {
-//         formValue?: any;
-//     }
-// }
+
+//#region INTERFACES, TYPES & ENUMS
 export interface IAboutUsAppFieldOption {
     required: boolean;
     controlled: boolean;
@@ -39,12 +37,17 @@ export interface IAboutUsAppWebPartProps {
     displayTypeOptions: Partial<IPropertyPaneDropdownOption[]>;
     listName: string;
     ppListName_dropdown: string | number;
+    homeTitle: string;
+    appMessage: string;
+    appMessageIsAlert: boolean;
     orgchart_key: { [color: string]: string };
     fields: { [fieldName: string]: IAboutUsAppFieldOption };
     ownerGroup: number;
     managerGroup: number;
     readerGroup: number;
+    broadcastDays: number;
 }
+//#endregion
 
 
 export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsAppWebPartProps> {
@@ -61,7 +64,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             "optListNames": [],
             "optSiteGroups": [],
             "optOrgChartColors": []
-        }
+        },
+        "broadcastDaysErrorMessage": ""
     };
 
     // Processing... modal message properties.
@@ -71,7 +75,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
     ];
 //#endregion
 
-//#region PRE-RENDER
+//#region RENDER
     public constructor() {
         super();
     }
@@ -94,7 +98,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                     this.propertyPane_.showPickListMenu = !this.list_.exists;
 
                 } catch (er) {
-                    AboutUsAppWebPart.DEBUG(`ERROR! Could not ensure '${ this.properties.listName }' list properties or fields. ` +
+                    LOG(`ERROR! Could not ensure '${ this.properties.listName }' list properties or fields. ` +
                         `Check to see if the list exists and you have the proper permissions.`, er);
                 }
 
@@ -107,20 +111,15 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         });
     }
 
-//#endregion
-
-//#region RENDER
     public async render(): Promise<void> {
-        const ELEMENT: React.ReactElement<IAboutUsAppProps> = React.createElement(
-            AboutUsApp,
-            {
+        const element: React.ReactElement<IAboutUsAppProps> = React.createElement(AboutUsApp, {
                 displayType: this.properties.displayType,
-                webpart: this.properties,
+                properties: this.properties,
                 list: this.list_
             }
         );
 
-        ReactDom.render(ELEMENT, this.domElement);
+        ReactDom.render(element, this.domElement);
     }
 
     protected onDispose(): void {
@@ -204,8 +203,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         
                         break;
                                 
-                    case "leadershipbroadcast":
-                        
+                    case "broadcast":
+                        pages.push(this.propertyPanePage_Broadcast());
                         break;
                 
                     default:
@@ -225,7 +224,11 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
      * @returns PropertyPane page and fields.
      */
     private propertyPanePage_General(): IPropertyPanePage {
-        const group_General = {
+        const group = {
+                groupName: "",
+                groupFields: []
+            },
+            group_General = {
                 groupName: "General",
                 groupFields: []
             },
@@ -239,10 +242,39 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             };
 
         // display type
-        group_General.groupFields.push(
+        group.groupFields.push(
             PropertyPaneDropdown("displayType", {
                 label: "Display Type",
                 options: this.properties.displayTypeOptions
+            })
+        );
+
+        // Home name
+        group_General.groupFields.push(
+            PropertyPaneLabel("lblHomeName", {
+                text: "'Home' title is displayed as the starting point for the breadcrumb naviagation."
+            })
+        );
+        group_General.groupFields.push(
+            PropertyPaneTextField("homeTitle", {
+                label: "Edit 'Home' title: (Default: Home)"
+            })
+        );
+
+        // App message
+        group_General.groupFields.push(
+            PropertyPaneLabel("lblAppMessage", {
+                text: "'Notice' text appears at the top of this web part."
+            })
+        );
+        group_General.groupFields.push(
+            PropertyPaneTextField("appMessage", {
+                label: "Enter a static notification:"
+            })
+        );
+        group_General.groupFields.push(
+            PropertyPaneToggle("appMessageIsAlert", {
+                label: "Emphasize message "
             })
         );
 
@@ -279,7 +311,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
                         } catch (er) {
                             modalMsg.close();
-                            AboutUsAppWebPart.DEBUG(`ERROR! Unable to update '${ this.properties.listName }' list with About-Us properties & fields.`, er);
+                            LOG(`ERROR! Unable to update '${ this.properties.listName }' list with About-Us properties & fields.`, er);
                             await CustomDialog.alert("Something went wrong! See the console for details.", "ERROR");
 
                         }
@@ -357,7 +389,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             header: {
                 description: this.properties.description
             },
-            groups: [group_General, group_List, group_Back]
+            groups: [group, group_General, group_List, group_Back]
         };
     }
 
@@ -546,6 +578,30 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         };
     }
 
+    /** PropertyPane Page
+     * @returns PropertyPane page and fields.
+     */
+    private propertyPanePage_Broadcast(): IPropertyPanePage {
+        const group = {
+            groupName: "General:",
+            groupFields: []
+        };
+
+        group.groupFields.push(
+            PropertyPaneTextField("broadcastDays", {
+                label: "Enter the number of days to broadcast bios for: (0 - 999)",
+                errorMessage: this.propertyPane_.broadcastDaysErrorMessage
+            })
+        );
+
+        return {
+            header: {
+                description: "Broadcast settings."
+            },
+            groups: [group]
+        };
+    }
+
     /** SPFx PropertyPane onChange event handler. Triggers anytime a PropertyPane form element is changed.
      * @param propertyPath PropertyPane's target name. Use this property to determine which element triggered the onChange.
      * @param oldValue Previous value
@@ -589,7 +645,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
                             }).catch( er => {
                                 modalMsg.close();
-                                AboutUsAppWebPart.DEBUG(`ERROR! Unable to check or update '${ newValue }' list with About-Us properties & fields.`, er);
+                                LOG(`ERROR! Unable to check or update '${ newValue }' list with About-Us properties & fields.`, er);
                                 CustomDialog.alert("Something went wrong! See the console for details.", "ERROR").then( () => {
                                     this.properties.ppListName_dropdown = "";
                                     this.propertyPane_.showPickListMenu = true;
@@ -625,8 +681,32 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 this.resetListPermissions();
                 break;
 
+            case "broadcastDays":   // broadcast days must be a number
+                // if empty
+                if (trim(newValue).length === 0) newValue = "0";
+
+                const numValue = parseInt(newValue);
+
+                if (isNaN( numValue )) {
+                    this.propertyPane_.broadcastDaysErrorMessage = "Must be a valid number.";
+                    this.properties.broadcastDays = oldValue;
+                    this.context.propertyPane.refresh();
+
+                } else if (numValue < 0 || numValue > 999) {
+                    this.propertyPane_.broadcastDaysErrorMessage = "Value must be between 0 and 999.";
+                    this.properties.broadcastDays = oldValue;
+                    this.context.propertyPane.refresh();
+
+                } else {
+                    this.propertyPane_.broadcastDaysErrorMessage = "";
+                    this.properties.broadcastDays = numValue;
+
+                }
+
+                break;
+
             default:
-                AboutUsAppWebPart.DEBUG("Uncaught PropertyPane change handler:", propertyPath, oldValue, newValue);
+                LOG("Uncaught PropertyPane change handler:", propertyPath, oldValue, newValue);
         }
     }
 
@@ -685,7 +765,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             this.propertyPane_.showPickListMenu = false;    // show update list menu
 
         } catch (er) {
-            AboutUsAppWebPart.DEBUG(`ERROR! Unable to create '${ newListName }' list.`, er);
+            LOG(`ERROR! Unable to create '${ newListName }' list.`, er);
             await CustomDialog.alert("Something went wrong! See the console for details.", "ERROR");
             this.propertyPane_.showPickListMenu = true;
             
@@ -751,7 +831,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             await this.updateContentManagersForAllItems();
 
         } catch (er) {
-            AboutUsAppWebPart.DEBUG("ERROR! Unable to reset list permissions.", er);
+            LOG("ERROR! Unable to reset list permissions.", er);
             CustomDialog.alert("Something went wrong. Open the console to see error details.");
         }
 
@@ -767,7 +847,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 await this.list_.updateContentManagers(item.Id);
             });
         } catch (er) {
-            AboutUsAppWebPart.DEBUG("ERROR! Unable to update content managers for all items.", er);
+            LOG("ERROR! Unable to update content managers for all items.", er);
         }
     }
 //#endregion
@@ -790,7 +870,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 
             }
         } catch (er) {
-            AboutUsAppWebPart.DEBUG("ERROR! Unable to get list names.", er);
+            LOG("ERROR! Unable to get list names.", er);
         }
 
         return this.propertyPane_.data.optListNames;
@@ -813,7 +893,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             }
 
         } catch (er) {
-            AboutUsAppWebPart.DEBUG("ERROR! Unable to get site groups.", er);
+            LOG("ERROR! Unable to get site groups.", er);
         }
 
         return this.propertyPane_.data.optSiteGroups;
@@ -836,29 +916,63 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
             }
         } catch (er) {
-            AboutUsAppWebPart.DEBUG("ERROR! Unable to get Org Chart Colors.", er);
+            LOG("ERROR! Unable to get Org Chart Colors.", er);
         }
 
         return this.propertyPane_.data.optOrgChartColors;
     }
-
-    /** Prints our debug messages. Decorated console.info() or console.error() method.
-     * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
-     */
-    private static DEBUG(...args: any[]) {
-        // is an error message, if first argument is a string and contains "error" string.
-        const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-        args = ["(About-Us)"].concat(args);
-
-        if (window && window.console) {
-            if (isError && console.error) {
-                console.error.apply(null, args);
-
-            } else if (console.info) {
-                console.info.apply(null, args);
-
-            }
-        }
-    }
 //#endregion
 }
+
+
+//#region PRIVATE LOG
+/** Prints out debug messages. Decorated console.info() or console.error() method.
+ * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
+ */
+ function LOG(...args: any[]) {
+    // is an error message, if first argument is a string and contains "error" string.
+    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
+    args = ["(About-Us AboutUsAppWebPart.ts)"].concat(args);
+
+    if (window && window.console) {
+        if (isError && console.error) {
+            console.error.apply(null, args);
+
+        } else if (console.info) {
+            console.info.apply(null, args);
+
+        }
+    }
+}
+//#endregion
+
+
+//#region GLOBAL HELPERS
+/** Pauses the script for a set amount of time.
+* @param milliseconds Amount of milliseconds to sleep.
+* @returns Promise
+* @example
+* await sleep(1000);  // sleep for 1 second then continue
+* // or
+* sleep(500).then(() => {});  // sleep for half second then run function
+*/
+export function sleep(milliseconds: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+ }
+ 
+/** 
+ * @param startDate Date broadcast started
+ * @param numDaysToBroadcast Number of days to broadcast
+ * @returns True if the broadcast date >= today and is < (broadcast date + number of days to broadcast)
+ */
+export function isInRange_numDays(date: Date, numDaysToBroadcast: number): boolean {
+    if (!date) return false;
+    if (!numDaysToBroadcast) numDaysToBroadcast = 0;
+
+    const today = new Date(),
+        startDate = new Date(date.toISOString()),
+        endDate = new Date(date.setDate(date.getDate() + numDaysToBroadcast));
+
+    return (today >= startDate && today < endDate);
+}
+//#endregion

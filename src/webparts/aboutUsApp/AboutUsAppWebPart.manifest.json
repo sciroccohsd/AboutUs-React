@@ -31,13 +31,20 @@
         {"key": "page", "text": "About-Us Page"},
         {"key": "orgchart", "text": "Org Chart"},
         {"key": "accordian", "text": "Accordian View"},
-        {"Key": "phone", "text": "Phone Directory"},
-        {"Key": "datatable", "text": "Org-Function-Mission Table"},
-        {"Key": "leadershipbroadcast", "text": "Leadership Broadcast"}        
+        {"key": "phone", "text": "Phone Directory"},
+        {"key": "datatable", "text": "Org-Function-Mission Table"},
+        {"key": "broadcast", "text": "Broadcast"}        
       ],
       "listName": "",
+
       "ppListName_dropdown": "",
+
+      "homeTitle": "Home",
+      "appMessage": "",
+      "appMessageIsAlert": false,
+
       "orgchart_key": {},
+
       "fields": {
         "OrgType": {
           "required": true,
@@ -68,9 +75,12 @@
           "controlled": true
         }
       },
+
       "ownerGroup": null,
       "managerGroup": null,
-      "readerGroup": null
+      "readerGroup": null,
+
+      "broadcastDays": 30
     }
   }]
 }

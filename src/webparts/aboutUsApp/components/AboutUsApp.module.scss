@@ -1,26 +1,19 @@
 @import '~office-ui-fabric-react/dist/sass/References.scss';
 
+@mixin default-text-styles ($size: 14px, $weight: 400) {
+  font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
+  font-size: $size;
+  font-weight: $weight;
+}
+
+@mixin default-section ($margin: 0 0 20px 0, $padding: 0) {
+  margin: $margin;
+  padding: $padding;
+}
+
 .aboutUsApp {
-  .container {
-    max-width: 700px;
-    margin: 0px auto;
-    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2), 0 25px 50px 0 rgba(0, 0, 0, 0.1);
-  }
-
-  .row {
-    @include ms-Grid-row;
-    @include ms-fontColor-white;
-    background-color: $ms-color-themeDark;
-    padding: 20px;
-  }
-
-  .column {
-    @include ms-Grid-col;
-    @include ms-lg10;
-    @include ms-xl8;
-    @include ms-xlPush2;
-    @include ms-lgPush1;
-  }
+  margin: 0;
+  padding: 0;
 
   .commandbar {
     background-color: "[theme: infoBackground, default:#f3f2f1]";
@@ -39,12 +32,14 @@
 
 
   .form {
+    @include default-text-styles;
     background-color: "[theme: BackgroundOverlay, default:rgba(255, 255, 255, 0.85)]";
     border-color: "[theme: dialogBorder, default:#f3f2f1]";
     border-radius: 0;
     border-width: 1px;
-    font-size: 12pt;
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2), 0 25px 50px 0 rgba(0, 0, 0, 0.1);
     margin: auto;
+    max-width: 700px;
     position: relative;
     text-align: center;
 
@@ -60,15 +55,6 @@
       margin: 1em 0 2em 0;
     }
 
-    .description {
-      color: "[theme: inputPlaceholderText, default:#605e5c]";
-      font-size: 11px;
-    }
-
-    ::placeholder {
-      color: "[theme: disabledText, default:#a19f9d]" !important;
-    }
-
     .fieldWrapper {
       font-size: inherit;
       padding: 5px 10px;
@@ -76,15 +62,13 @@
       text-align: initial;
 
       label {
+        @include default-text-styles($weight: 600);
         // border-left: 3px solid;
         // border-left-color: "[theme: SuiteBarBackground, default:#03787c]";
         box-sizing: border-box;
         box-shadow: none;
         color: "[theme: SuiteBarBackground, default:#03787c]";
         display: block;
-        font-family: inherit;
-        font-size: 14px;
-        font-weight: 600;
         margin: 0;
         padding: 5px 0 5px 5px;
         overflow-wrap: break-word;
@@ -94,6 +78,16 @@
         content: " *";
         color: "[theme: redDark, default:#a4262c]";
         padding-right: 12px;
+      }
+
+      ::placeholder {
+        color: "[theme: disabledText, default:#a19f9d]" !important;
+      }
+
+      .description,
+      :global(.ms-TextField-description) {
+        @include default-text-styles($weight: 100);
+        color: "[theme: inputPlaceholderText, default:#605e5c]";
       }
 
       .richTextWrapper {
@@ -113,30 +107,66 @@
         border-color: "[theme: errorText, default:#a4262c]" !important;
       }
       .richtext {
-        font-size: "[theme: mediumFontSize, default:14px]";
-
+        @include default-text-styles;
+    
         // @PnP/SPFX-Controls-React RichText div outer wrapper
         :global(.quill) {
-          font-size: inherit !important;
-
+          @include default-text-styles;
+    
           // @PnP/SPFX-Controls-React RichText content container
           :global(.ql-editor) {
-            font-size: inherit !important;
+            @include default-text-styles;
           }
 
           // @PnP/SPFX-Controls-React RichText placeholder
           :global(.ql-blank::before) {
             color: "[theme: disabledText, default:#a19f9d]";
-            font-size: inherit !important;
+            @include default-text-styles();
           }
         }
       }
 
+      .complexDataDisplayContainer {
+        background-color: "[theme: disabledBackground, default:#f3f2f1]";
+        border-color: "[theme: disabledBorder, default:#c8c6c4]";
+        border-width: 1px;
+        border-style: solid;
+        color: "[theme: BodyText, default:#323130]";
+        padding: 1em;
+        margin: 5px 0;
+      }
+
+      .textboxWithButtonWrapper {
+        background-color: "[theme: inputBackground, default:#ffffff]";
+        border-color: "[theme: inputBorder, default:#605e5c]";
+        border-width: 1px;
+        border-style: solid;
+        color: "[theme: BodyText, default:#323130]";
+        display: flex;
+        justify-content: space-between;
+        padding: 0;
+        margin: 0;
+        width: 300px;
+
+        .textbox {
+          border: none;
+          margin: 0;
+          padding-left: 5px;
+          width: 100%;
+
+          &:focus,
+          &:active {
+            outline: none;
+          }
+        }
+        .button {
+          height: inherit;
+        }
+      }
+
       .errorMessage {
-        font-family: inherit;
+        @include default-text-styles;
         -webkit-font-smoothing: antialiased;
-        font-size: 12px;
-        font-weight: 400;
         color: "[theme: redDark, default:#a4262c]";
         margin: 0px;
         padding-top: 5px;
@@ -145,4 +175,573 @@
       }
     }
   }
+
+  .defaultPageLayout {
+    @include default-text-styles;
+    background-color: "[theme: PageBackground, default:#ffffff]";
+    display: grid;
+    grid: 
+      'messageSection messageSection messageSection'
+      'headerSection headerSection headerSection'
+      'bodySection bodySection sideSection'
+      'footerSection footerSection footerSection';
+    grid-gap: 10px;
+    grid-template-columns: auto auto 350px;
+    margin: 0;
+    padding: 0;
+
+    .messageSection {
+      grid-area: messageSection;
+      @include default-text-styles;
+      @include default-section($margin: 0);
+
+      &.isAlert {
+        background-color: "[theme: errorBackground, default:#FDE7E9]";
+        border: 1px solid "[theme: errorText, default:#a4262c]";
+        border-radius: 5px;
+        color: "[theme: errorText, default:#a4262c]";
+        font-size: "[theme: mediumPlusFontSize, default:16px]";
+        margin: 5px 15px;
+      }
+    }
+
+    .headerSection {
+      grid-area: headerSection;
+      display: grid;
+      grid: 
+        'logoSection menuSection menuSection toolbarSection'
+        'logoSection navSection navSection searchSection'
+        'logoSection header header searchSection';
+      grid-gap: 10px;
+      grid-template-columns: 120px auto auto auto;
+      @include default-text-styles;
+      background-color: "[theme: HeaderBackground, default:rgba(255, 255, 255, 0.85)]";
+      border-bottom: 3px solid;
+      border-color: "[theme: HeaderSubtleLines, default:#c8c6c4]";
+
+      .logoSection {
+        grid-area: logoSection;
+        height: 110px;
+        width: 120px;
+
+        .pageLogo {
+          border: none;
+          display: block;
+          margin: auto;
+          max-height: 100px;
+          max-width: 100px
+        }
+      }
+
+      .menuSection {
+        grid-area: menuSection;
+        @include default-text-styles;
+        font-size: small;
+  
+        .menu {
+          color: "[theme: menuItemText, default:#323130]";
+        }
+        .icon {
+          color: "[theme: menuIcon, default:#03787c]";
+        }
+      }
+
+      .toolbarSection {
+        grid-area: toolbarSection;
+        @include default-text-styles;
+      }
+
+      .navSection {
+        grid-area: navSection;
+        @include default-text-styles;
+        box-sizing: border-box;
+        left: 0;
+        position: fixed;
+        top: 0;
+
+        .navList {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+
+          > .navItem,
+          > .navItem > a {
+            display: inline-block;
+            text-decoration: none;
+            white-space: nowrap;
+
+            &:hover {
+              > .navSubList {
+                display: block;
+              }
+            }
+
+            > .navSubList {
+              display: none;
+              list-style: none;
+              margin: 0;
+              max-height: 600px;
+              max-width: 300px;
+              overflow: hidden auto;
+              padding: 0;
+              transition: 250ms;
+
+              > .navSubItem,
+              > .navSubItem > a {
+                display: block;
+                text-decoration: none;
+                word-break: break-word;
+              }
+
+            }
+          }
+        }
+      }
+
+      .searchSection {
+        grid-area: searchSection;
+        @include default-text-styles;
+  
+        .searchContainer {
+          background-color: "[theme: inputBackground, default:#ffffff]";
+          border-color: "[theme: inputBorder, default:#605e5c]";
+          border-width: 1px;
+          border-style: solid;
+          color: "[theme: BodyText, default:#323130]";
+          display: flex;
+          justify-content: space-between;
+          padding: 0;
+          margin: 0;
+          width: 300px;
+  
+          .searchbox {
+            border: none;
+            margin: 0;
+            padding-left: 5px;
+            width: 100%;
+  
+            &:focus,
+            &:active {
+              outline: none;
+            }
+          }
+          .searchButton {
+            height: inherit;
+          }
+        }
+
+        .searchResultsContainer {
+          display: block;
+          position: relative;
+          margin: 0 auto;
+          max-height: 600px;
+          overflow: hidden auto;
+          padding: 0;
+          width: 300px;
+
+          a:link,
+          a:active,
+          a:visited,
+          .searchResult {
+            margin: 5px;
+            text-decoration: none;
+          }
+        }
+      }
+
+      .header {
+        grid-area: header;
+        color: "[theme: HeaderText, default:#323130]";
+      }    
+    }
+
+    .bodySection {
+      grid-area: bodySection;
+      @include default-text-styles;
+      border-top: 5px solid;
+      border-color: "[theme: HeaderAccentLines, default:#13898d]";
+      margin: 0;
+      padding: 0;
+    }
+
+    .sideSection {
+      grid-area: sideSection;
+      @include default-text-styles;
+      border-top: 5px solid;
+      border-color: "[theme: HeaderAccentLines, default:#13898d]";
+      margin: 0;
+      padding: 0;
+    }
+
+    .footerSection {
+      grid-area: footerSection;
+      @include default-text-styles;
+      margin: 0;
+      padding: 0;
+    }
+  }
+
+
+  .sectionBanner {
+    @include default-text-styles($size: "[theme: mediumPlusFontSize, default:16px]");
+    background-color: "[theme: HeaderAccentLines, default:#13898d]";
+    color: "[theme: HeaderBackground, default:rgba(255, 255, 255, 0.85)]";
+    margin: 20px 0 0 0;
+    padding: 3px 0 3px 5px;
+  }
+
+  .headerText {
+    display: block;
+    font-size: "[theme: xLargeFontSize, default:20px]";
+    font-weight: 100;
+    margin: 3px;
+    padding: 0;
+  }
+  .subtitle {
+    color: "[theme: HeaderSubtleText, default:#8a8886]";
+    font-size: "[theme: smallFontSize, default:12px]";
+  }
+
+  .missionContainer {
+    @include default-text-styles;
+    @include default-section;
+  }
+
+  .tasksContainer {
+    @include default-text-styles;
+    @include default-section;
+  }
+
+  .contentContainer {
+    @include default-text-styles($size: "[theme: mediumPlusFontSize, default:16px]");
+    @include default-section;
+    border-top: 5px solid;
+    border-color: "[theme: HeaderAccentLines, default:#13898d]";
+  }
+
+  .subContentContainer {
+    @include default-text-styles;
+    @include default-section($margin: 20px 10px, $padding: 0 10px);
+    background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
+    border-color: "[theme: HeaderLines, default:#a19f9d]";
+    border-radius: 0 0 5px 5px;
+    border-style: solid;
+    border-width: 5px 1px 1px 1px;
+    font-size: small;
+  }
+
+  .keywordsContainer {
+    @include default-text-styles;
+    @include default-section;
+  }
+
+  .biosContainer {
+    @include default-text-styles;
+    @include default-section($margin: 0 auto);
+    background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
+    border-color: "[theme: HeaderLines, default:#a19f9d]";
+    border-radius: 0 0 5px 5px;
+    border-style: solid;
+    border-width: 5px 1px 1px 1px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .linksContainer {
+    @include default-text-styles;
+    @include default-section;
+  }
+
+  .sopsContainer {
+    @include default-text-styles;
+    @include default-section;
+  }
+
+  .contactsContainer {
+    @include default-text-styles;
+    @include default-section;
+  }
+
+  .officeInformationContainer {
+    @include default-text-styles;
+    padding: 0;
+
+    .officeInfo {
+      @include default-section;
+
+      .officeLabel {
+        font-weight: 600;
+      }
+    }
+  }
+
+  .locationContainer {
+    @include default-text-styles;
+  }
+
+  .addressContainer {
+    @include default-text-styles;
+    white-space: pre-wrap;
+  }
+
+  .phoneContainer {
+    @include default-text-styles;
+  }
+
+  .dsnContainer {
+    @include default-text-styles;
+  }
+
+  .faxContainer {
+    @include default-text-styles;
+  }
+
+  .signatureBlockContainer {
+    @include default-text-styles;
+    white-space: pre-wrap;
+  }
+
+  .contentManagersContainer {
+    @include default-text-styles;
+
+    a:link,
+    a:active,
+    a:visited,
+    .email {
+      text-decoration: none;
+    }
+  }
+
+  .validatedContainer {
+    @include default-text-styles;
+  }
 }
+
+/**************************************************************/
+/** ABOUT US DISPLAY COMPLEX DATA ITEMS WITH SORTING ABILITY **/
+/** This needs to be at the top level (not nested) because dragged elements
+ **  are copied to the BODY and will lose any nested references. **/
+
+/** TASK ITEMS **/
+.aboutUsTaskItem {
+  @include default-text-styles;
+  margin: 3px 5px;
+  vertical-align: top;
+
+  .task {
+    &::before {
+      content: "\2605"; // black star
+      padding-right: 1em;
+    }
+  }
+}
+
+/** BIO ITEMS **/
+.aboutUsBioItem {
+  @include default-text-styles;
+  display: inline-block;
+  margin: 5px auto !important;
+  padding: 5px;
+  text-align: center;
+  width: 300px;
+  vertical-align: top;
+
+  .bioPosition {
+    font-weight: 600;
+    margin: 0 0 3px 0;
+  }
+
+  .bioImgContainer {
+    text-align: center;
+
+    .bioImg {
+      max-width: 200px;
+      max-height: 250px;
+      border-radius: 5px;
+    }
+  }
+
+  .bioNameContainer {
+    a:link,
+    a:visited,
+    a:active,
+    .bioLink {
+      color: "[theme: Hyperlink, default:#03787c]";
+      text-decoration: none;
+    }
+
+    .bioName {
+      color: inherit;
+    }
+  }
+
+  .bioSubtitle {
+    color: inherit;
+  }
+}
+
+/** LINK & SOP ITEMS **/
+.aboutUsLinkItem {
+  @include default-text-styles;
+  display: inline-block;
+  margin: 3px 5px;
+  width: 300px;
+  vertical-align: top;
+
+  a:link,
+  a:visited,
+  a:active,
+  .link {
+    color: "[theme: Hyperlink, default:#03787c]";
+    display: block;
+    text-decoration: none;
+    word-break: break-all;
+
+    .linkIcon {
+      display: inline-block;
+      height: .9em;
+      margin: 0 5px 0 0;
+      width: .9em;
+    }
+
+  }
+}
+
+/** CONTACT ITEMS **/
+.aboutUsContactItem {
+  @include default-text-styles;
+  color: "[theme: neutralTertiary, default:#a19f9d]";
+  display: inline-block;
+  margin: 5px auto !important;
+  padding: 10px;
+  text-align: center;
+  vertical-align: top;
+  width: 300px;
+  word-break: break-word;
+
+  .nameContainer {
+    border-bottom: 1px solid "[theme: neutralTertiary, default:#a19f9d]";
+    color: "[theme: neutralPrimary, default:#323130]";
+    display: block;
+    text-align: center;
+
+    .title {
+      font-size: .9em;
+      font-weight: 200;
+    }
+    .name {
+      font-size: 1.2em;
+      font-weight: 500;
+    }
+  }
+
+  a:link,
+  a:visited,
+  a:active,
+  .link {
+    display: block;
+    margin: auto;
+    text-align: center;
+    text-decoration: none;
+    padding-bottom: 5px;
+  }
+
+  .phoneContainer {
+    display: block;
+
+    .phone {
+      display: inline-block;
+      margin: auto 5px;
+      white-space: nowrap;
+    }
+  }
+
+  .location {
+    display: block;
+  }
+}
+
+/** COMPLEX DATA - COMMAND BAR WITH EDIT & DELETE BUTTONS **/
+.aboutUsDisplayItemCommandBar {
+  background-color: transparent;
+  visibility: hidden;
+
+  :global(.ms-CommandBar) {
+    background-color: inherit;
+    padding: 0;
+
+    :global(.ms-CommandBar-primaryCommand) > div {
+      margin: 0 5px;
+    }
+  }
+}
+
+/** TAGS AND KEYWORDS **/
+.aboutUsKeywordItem {
+  @include default-text-styles;
+  display: inline-block !important;
+  margin: 3px 15px;
+  vertical-align: top;
+
+  .keyword {
+    @include default-text-styles;
+    word-break: break-word;
+    
+    &::before {
+      content: "\2606";
+      font-size: .8em;
+      padding-right: 1em;
+    }
+
+    .button {
+      background-color: transparent;
+      border: none;
+      display: block;
+      float: right;
+      height: inherit;
+      margin: 2px 0;
+      position: relative;
+      visibility: hidden;
+      z-index: 100;
+    }
+  }
+
+  &:hover {
+    .button {
+      visibility: visible;
+    }
+  }
+}
+
+/** REACT-EASY-SORT **/
+.aboutUsSortableList {
+  user-select: none;
+}
+.aboutUsSortableItem {
+  @include default-text-styles;
+  border: 1px solid transparent;
+  border-radius: 1em;
+  cursor: grab;
+  display: block;
+  margin: 5px;
+  padding: 5px;
+  user-select: none;
+
+  img {
+    user-select: none;
+    cursor: default;
+  }
+
+  &:hover {
+    background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
+    border-color: "[theme: inputBorderHovered, default:#323130]";
+
+    .aboutUsDisplayItemCommandBar {
+      visibility: visible;
+    }
+  }
+}
+.aboutUsSortableItemDragged {
+  opacity: .5;
+}
+/********/
