@@ -28,6 +28,7 @@ import { IItemAddResult, IItemUpdateResult, _Items } from '@pnp/sp/items/types';
 import { PermissionKind } from '@pnp/sp/security';
 import "@pnp/sp/security";
 import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption, isInRange_numDays, sleep } from '../AboutUsAppWebPart';
+import { ISiteUserInfo } from '@pnp/sp/site-users/types';
 
 //#region INTERFACES, TYPES & ENUMS
 export interface IAboutUsFormProps {
@@ -95,6 +96,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     private baseComponentContext: BaseWebPartContext = null;
     private listItem: Record<string, any> = null;
     private fieldsThatHaveBeenModified: string[] = [];   // list of internal field names that have been modified/updated
+    private user: ISiteUserInfo = null;
 
     private _htmlNode = document.createElement("div");
 
@@ -127,11 +129,14 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         return (
             <div className={styles.form}>
                 { this.state.display === DISPLAY_STATE.ready ? 
- 
                     <form>
-                        <h3 className={styles.formHeader}>{ this.props.form === "new" ? "New About-Us Entity:" : `Editing ${ this.listItem.Title}:` }</h3>
-                        { this.props.form === "new" ? this.newForm() : null }
-                        { this.props.form === "edit" ? this.editForm() : null }
+                        <h3 className={styles.formHeader}>
+                            { (this.props.form === "new") 
+                                ? "New About-Us Entry:" 
+                                : `Editing ${ this.listItem.Title}:` 
+                            }
+                        </h3>
+                        { (this.props.form) ? this.formFields() : null }
                     </form>
                 : 
                     <div>
@@ -154,47 +159,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         } else if (this.props.form === "edit") {
             // edit form: need to get list item data
             this.setState({"display": DISPLAY_STATE.loading});
-
-            // const $select = ["Id", "ID"],
-            //     $expand = [];
-
-            // this.props.list.fields.forEach(field => {
-            //     switch (field["odata.type"]) {
-            //         case "SP.FieldLookup":
-            //             $select.push(field.InternalName);
-            //             $select.push(field.InternalName + "Id");
-            //             $select.push(field.InternalName + "/ID");
-            //             $select.push(field.InternalName + "/" + field.LookupField);
-
-            //             $expand.push(field.InternalName);
-            //             break;
-
-            //         case "SP.FieldUser":
-            //             $select.push(field.InternalName);
-            //             $select.push(field.InternalName + "Id");
-            //             $select.push(field.InternalName + "/ID");
-            //             $select.push(field.InternalName + "/Title");
-            //             $select.push(field.InternalName + "/Name");
-            //             $select.push(field.InternalName + "/EMail");
-
-            //             $expand.push(field.InternalName);
-            //             break;
-                
-            //         default:
-            //             $select.push(field.InternalName);
-            //             break;
-            //     }
-            // });
-
-            // // if item ID was passed use that first
-            // if (typeof this.props.itemId === "number") {
-            //     const apiItems = this.props.list.api.items.getById(this.props.itemId);
-            //     _item = await apiItems
-            //         .select.apply(apiItems, $select)
-            //         .expand.apply(apiItems, $expand)
-            //         .get();
-            //     if (_item && _item.Id) this.listItem = _item;
-            // }
 
             this.listItem = await this.props.list.getItemById_expandFields(this.props.itemId);
 
@@ -232,53 +196,23 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         );
     }
 //#endregion
-    
-//#region NEW FORM
-    /** Create all the form field controls.
-     * @returns Stack of field controls
-     */
-    private newForm(): React.ReactElement {
-        let elements: React.ReactElement[] = [],
-            valueStates: {[key:string]: IAboutUsValueState} = {};
 
-        this.props.list.fields.forEach( field => {
-            try{
-                const valueState = this.ensureValueState_for(field.InternalName, field.DefaultValue);
-
-                let element = this.createFieldControl(field, valueState);
-                if (element) elements.push(element);
-
-            } catch(er) {
-                LOG("ERROR: newForm()", field, er);
-            }
-        });
-
-        return (
-            <div>
-                { this.NewEditCommandBar() }
-                { this.state.errorMessage ? this.ErrorMessage() : null }
-                <Stack tokens={{ childrenGap: 10}} className={styles.formFieldsContainer}>{ elements }</Stack>
-                { this.state.errorMessage ? this.ErrorMessage() : null }
-                { this.NewEditCommandBar() }
-            </div>
-        );
-    }
-//#endregion
-    
-//#region EDIT FORM
-    private editForm(): React.ReactElement {
+//#region FORM FIELDS
+    private formFields(): React.ReactElement {
         let elements: React.ReactElement[] = [];
 
         this.props.list.fields.forEach( field => {
             try{
-                const defaultValue = this.getItemValue_for(field.InternalName),
+                const defaultValue = (this.props.form === "edit") 
+                    ? this.getListItemData_for(field.InternalName) 
+                    : field.DefaultValue,
                     valueState = this.ensureValueState_for(field.InternalName, defaultValue);
 
                 let element = this.createFieldControl(field, valueState);
                 if (element) elements.push(element);
 
             } catch(er) {
-                LOG("ERROR: editForm()", field, er);
+                LOG("ERROR: form()", field, er);
             }
         });
 
@@ -292,6 +226,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             </div>
         );
     }
+
 //#endregion
 
 //#region CONTROLS
@@ -302,7 +237,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      */
     private createFieldControl(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState): React.ReactElement {
 
-        /// custom form controls
+        // custom 'ComplexData' form controls
         const displayControls: Record<string, React.ComponentClass<AboutUsDisplay.IAboutUsComplexDataDisplayProps>> = {
             "Tasks": AboutUsDisplay.TasksDisplay,
             "Bios": AboutUsDisplay.BiosDisplay,
@@ -331,7 +266,8 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 if (displayControl) {
                     return this.customFieldComplexData(field, valueState, displayControl);
                 } else {
-                    LOG(`createFieldControl() > Custom Form Control: Could not find the AboutUsDisplay control type for ${field.InternalName}. Used default rendering instead.`, field);
+                    LOG(`createFieldControl() > Custom Form Control: Could not find the AboutUsDisplay \
+                        control type for ${field.InternalName}. Used default rendering instead.`, field);
                 }
 
                 break;
@@ -343,7 +279,11 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
                 return this.customFieldKeywords(field, valueState);
 
+            case "Validated": 
+                return (this.props.form === "edit") ? this.customFieldValidated(field, valueState) : null ;
+
             case "BroadcastDate":
+            case "ValidatedBy":
                 return null;
         }
         
@@ -672,7 +612,11 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @param valueState ValueState object for this field
      * @returns Form element with with label, required asterisk, field, description, & error text elements.
      */
-    private customFieldComplexData(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState, displayControl: React.ComponentClass<any>): React.ReactElement {
+    private customFieldComplexData(
+        field: IDataFactoryFieldInfo,
+        valueState: IAboutUsValueState,
+        displayControl: React.ComponentClass<any>): React.ReactElement {
+
         const fieldOption = this.getFieldWebPartOptions_by_InternalName(field.InternalName),
             props = {
                 disabled: valueState.disabled,
@@ -684,6 +628,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
                 displayControl: displayControl,
 
+                properties: this.props.properties,
                 showEditControls: true,
                 onAdd: () => { this.complexData_onAdd(field.InternalName); },
                 onEdit: (ndx: number) => { this.complexData_onEdit(field.InternalName, ndx); },
@@ -695,7 +640,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         return React.createElement(FormControls.CustomControlComplexData, props);
     }
 
-    /** Create a Custom 'Tasks' control.
+    /** Create a Custom 'Keyword' control.
      * @param field Field information
      * @param valueState ValueState object for this field
      * @returns Form element with with label, required asterisk, field, description, & error text elements.
@@ -712,11 +657,41 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
                 showEditControls: true,
                 onAdd: (value) => { return this.arrayData_onAdd(field.InternalName, value); },
-                onOrderChange: (oldIndex: number, newIndex: number) => { this.reorderValueState_ArrayData(field.InternalName, oldIndex, newIndex); },
+                onOrderChange: (oldIndex: number, newIndex: number) => {
+                    this.reorderValueState_ArrayData(field.InternalName, oldIndex, newIndex);
+                },
                 onDelete: (ndx: number)=>{ this.arrayData_onDelete(field.InternalName, ndx); }
             };
 
         return React.createElement(FormControls.CustomControlKeywords, props);
+    }
+
+    /** Create a Custom 'Validated' control.
+     * @param field Field information
+     * @param valueState ValueState object for this field
+     * @returns Form element with with label, required asterisk, field, description, & error text elements.
+     */    
+     private customFieldValidated(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState): React.ReactElement {
+        const validatedBy = "ValidatedBy",
+            validatedByValue = (this.props.form === "edit") ? this.getListItemData_for(validatedBy) : null,
+            validatedByState = this.ensureValueState_for(validatedBy, {
+                control: validatedByValue,
+                sp: (validatedByValue) ? validatedByValue.ID : null
+            }),
+            validated = valueState.value,
+            props: AboutUsDisplay.IPageValidationDisplayProps = {
+                properties: this.props.properties,
+                validated: (validated) ? new Date(validated) : null,
+                validatedBy: validatedByState.value.control,
+                showButton: !valueState.disabled,
+                onValidate: async () => { await this.validated_onClick(field.InternalName, validatedBy); }
+            };
+
+        return <div className={styles.fieldWrapper}>
+            <div className={styles.validatedContainer}>
+                { React.createElement(AboutUsDisplay.PageValidationDisplay, props) }
+            </div>
+        </div>;
     }
 //#endregion
     
@@ -800,9 +775,11 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                     if (valueState.value.sp === null) valueState.value.sp = {results: []};
                     if (valueState.value.control === null) valueState.value.control = [];
 
-                    // new value added
-                    valueState.value.sp.results.push(value.key);
-                    valueState.value.control.push(value.key);
+                    // new value added. need to check to see if this was called multiple times
+                    if (valueState.value.sp.results.indexOf(value.key) === -1) {
+                        valueState.value.sp.results.push(value.key);
+                        valueState.value.control.push(value.key);
+                    }
 
                 } else {
                     if (valueState.value.sp !== null && valueState.value.control !== null) {
@@ -811,9 +788,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                         if (ndx > -1) {
                             valueState.value.sp.results.splice(ndx, 1);
                             valueState.value.control.splice(ndx, 1);
-
-                            //if (valueState.value.sp.results.length === 0) valueState.value.sp = [];
-                            //if (valueState.value.control.length === 0) valueState.value.control = null;
                         }
                     }
 
@@ -1032,6 +1006,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     }
 
     /** Array data Delete item event handler
+     * @param internalName Field InternalName used as the fields reference ID
      * @param ndx Index of item that was clicked
      */
     private arrayData_onDelete(internalName: string, ndx: number) {
@@ -1040,6 +1015,32 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 this.updateValueState_ArrayData(internalName, null, ndx, true);
             }
         });
+    }
+
+    /** Validated / ValidatedBy display with button
+     * @param internalName Date field InternalName used to store the validated date
+     * @param validatedByFieldName PeoplePicker field InternalName used to store the validated by user info
+     */
+    private async validated_onClick(internalName: string, validatedByFieldName: string) {
+        // ensure user
+        if (!this.user) this.user = await this.props.list.getCurrentUser();
+        
+        const today = new Date(),
+            valueState = this.getValueState_by_InternalName(internalName),
+            validatedByState = this.getValueState_by_InternalName(validatedByFieldName);
+
+        // add date & user field to modified list
+        this.fieldWasModified(internalName);
+        this.fieldWasModified(validatedByFieldName);
+
+        // update value state for both fields
+        valueState.value = today.toISOString();
+        validatedByState.value.control = this.convertSiteUser_toUserInfo(this.user);
+        validatedByState.value.sp = this.user.Id;
+
+        // set new value states
+        this.setValueState_for(internalName, valueState);
+        this.setValueState_for(validatedByFieldName, validatedByState);
     }
 //#endregion
     
@@ -1246,13 +1247,17 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @param evt Click event object
      * @param item Toolbar item clicked
      */
-    private async cancel_onClick(evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>, item?: IContextualMenuItem): Promise<boolean | void> {
+    private async cancel_onClick(
+        evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>,
+        item?: IContextualMenuItem): Promise<boolean | void> {
+
         let goBack: boolean;
 
         // check to see if any changes were made to the form
         if (this.fieldsThatHaveBeenModified.length > 0) {
             // make sure they didn't accidentally clicked 'Cancel'
-            goBack = await CustomDialog.confirm(`Are you sure you want to cancel? ${(this.props.form === "new") ? "The new item " : "Changes "} will not be saved.`, "Cancel?", undefined);
+            goBack = await CustomDialog.confirm(`Are you sure you want to cancel? ${(this.props.form === "new") ? 
+                "The new item " : "Changes "} will not be saved.`, "Cancel?", undefined);
 
         } else {
             // no changes, ok to cancel
@@ -1266,7 +1271,10 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @param evt Click event object
      * @param item Toolbar item clicked
      */
-    private async save_onClick(evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>, item?: IContextualMenuItem): Promise<boolean | void> {
+    private async save_onClick(
+        evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>,
+        item?: IContextualMenuItem): Promise<boolean | void> {
+
         this.setState({"isProcessingForm": true});
 
         // show modal
@@ -1385,11 +1393,16 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @param evt Click event object
      * @param item Toolbar item clicked
      */
-    private async delete_onClick(evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>, item?: IContextualMenuItem): Promise<boolean | void> {
+    private async delete_onClick(
+        evt?: React.MouseEvent<HTMLElement, MouseEvent> | React.KeyboardEvent<HTMLElement>,
+        item?: IContextualMenuItem): Promise<boolean | void> {
+
         if (this.listItem && this.listItem.Id) {
             this.setState({"isProcessingForm": true});
 
-            const comfirmed = await CustomDialog.confirm(`Are you sure want to delete '${ this.listItem.Title } (ID: ${ this.listItem.Id })'?`, "Confirm Delete", {yes: "Delete", no: "Cancel"});
+            const comfirmed = await CustomDialog.confirm(
+                `Are you sure want to delete '${ this.listItem.Title } (ID: ${ this.listItem.Id })'?`,
+                "Confirm Delete", {yes: "Delete", no: "Cancel"});
             if (comfirmed) {
                 const modalMsg = CustomDialog.modalMsg("Processing...", "Please wait!");
 
@@ -1559,7 +1572,8 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * Types of user data accepted:
      * - SP.FieldUser (single) = IUserInfoItem = {ID: number, Name: string}
      * - SP.FieldUser (multi) = IUserInfoItem[] = {results: [{ ID: number, Name: string }, ...]}
-     * - PeoplePicker (SPFX PnP React Control) onChange = IPersonaProps[] = [{id: number, loginName: string, secondaryText: string}, ...]
+     * - PeoplePicker (SPFX PnP React Control) onChange = IPersonaProps[] = 
+     *      [{id: number, loginName: string, secondaryText: string}, ...]
      * - SP.User = ISiteUserProps = {Id: number, LoginName: string, Email: string, ...}
      * @param users SP UserInfoItem object or array of UserInfoItems
      * @param internalName Field InternalName used as the field's reference ID.
@@ -1864,11 +1878,13 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     /** Generates a new MicroForm based on the InternalName passed.  
      * @param internalName Field InternalName used as the fields's reference ID.
      * @param formValues Default form values. If null, form will be populated with field default values.
-     * @returns New MicroForm instance for internal name passed.  (async) .show() returns the form values as JSON or null if cancelled.
+     * @returns New MicroForm instance for internal name passed.  
+     *      (async) .show() returns the form values as JSON or null if cancelled.
      */
     private generateMicroForm(internalName: string, formValues?: Record<string, any>): AboutUsMicroForm {
         const field = this.getField_by_InternalName(internalName),
-            template = (internalName in DataFactory.listTemplate.fieldMicroForms) ? DataFactory.listTemplate.fieldMicroForms[internalName] : null,
+            template = (internalName in DataFactory.listTemplate.fieldMicroForms) ? 
+                DataFactory.listTemplate.fieldMicroForms[internalName] : null,
             microForm = (template) ? new AboutUsMicroForm(`${field.Title} Form`, template, formValues) : null;
 
         return microForm;
@@ -1878,20 +1894,8 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @param internalName Field InternalName used as the fields's reference ID.
      * @returns List item value for the field
      */
-    private getItemValue_for(internalName: string): any {
-        // // some field types require to append "Id" to the field name
-        // const typesRequiringId = ["SP.FieldLookup", "SP.FieldUser"],    // lookup & user fields, unless expanding the fields
-        //     field = this.getField_by_InternalName(internalName);
-
-        // if (typesRequiringId.indexOf(field["odata.type"]) > -1) internalName += "Id";
-
-        let value = null;
-
-        if (internalName in this.listItem) value = this.listItem[internalName];
-
-        // some values may be objects with "results"
-
-        return value;
+    private getListItemData_for(internalName: string): any {
+        return (internalName in this.listItem) ? this.listItem[internalName] : null ;
     }
 
     /** Get Field information
@@ -1940,7 +1944,8 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         if (typeof delimitedString === "undefined" || delimitedString === null) return [];
 
         // if SP string using ";#" as the separator. remove leading and trailing separators.
-        if (typeof delimitedString === "string" && delimitedString.indexOf(";#") > -1) return trim(delimitedString).replace(/^(;#)|(;#)$/g,"").split(";#");
+        if (typeof delimitedString === "string" && delimitedString.indexOf(";#") > -1) 
+            return trim(delimitedString).replace(/^(;#)|(;#)$/g,"").split(";#");
 
         // if just a single string value
         if (typeof delimitedString === "string") return [trim(delimitedString)];
@@ -1958,7 +1963,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         return isNaN(num) ? null : num;
     }
 
-
     /** Get the text from a string representing HTML.
      * @param htmlString String representing HTML.
      * @returns innerText from the HTML
@@ -1967,6 +1971,22 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         this._htmlNode.innerHTML = htmlString || "";
 
         return this._htmlNode.innerText;
+    }
+
+    /** Converts the site user object to the IUserInfo object.
+     * ISiteUserInfo object is the user object returned by the PNP/SP Site-User REST request
+     * AboutUsDisplay.IUserInfo object is the expanded User data from the Items REST request.
+     * @param user Site user information object
+     */
+    private convertSiteUser_toUserInfo(user: ISiteUserInfo): AboutUsDisplay.IUserInfo {
+        return (user) ? {
+            "odata.type": user["odata.type"],
+            "odata.id": user["odata.id"],
+            "ID": user.Id,
+            "Title": user.Title,
+            "Name": user.LoginName,
+            "EMail": user.Email
+        } : null;
     }
 
     /** Flag (or unflag) fields that have been modified.
@@ -1987,15 +2007,12 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
     /** sets user permission flag states (add, edit, delete) */
     private async setCurrentUserFlags(): Promise<void> {
-        const api = this.props.list.api,
-            canAdd = await api.currentUserHasPermissions(PermissionKind.AddListItems),
-            canEdit = await api.currentUserHasPermissions(PermissionKind.EditListItems),
-            canDelete = await api.currentUserHasPermissions(PermissionKind.DeleteListItems);
+        const userPermissions = await this.props.list.getUserPermissions();
 
         this.setState({
-            canSaveForm: canAdd || canEdit,
-            canDeleteItem: canDelete,
-            isAdmin: canAdd && canDelete
+            canSaveForm: userPermissions.canAdd || userPermissions.canEdit,
+            canDeleteItem: userPermissions.canDelete,
+            isAdmin: userPermissions.canAdd && userPermissions.canDelete
         });
     }
 

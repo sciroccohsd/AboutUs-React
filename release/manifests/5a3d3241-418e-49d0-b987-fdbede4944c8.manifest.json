@@ -24,6 +24,7 @@
       },
       "officeFabricIconFontName": "Storyboard",
       "properties": {
+        "urlParam": "aboutus",
         "description": "Enterprise directory (e.g.: YellowPages) for hierarchical organizations.",
         "displayType": "page",
         "displayTypeOptions": [
@@ -55,8 +56,12 @@
         "listName": "",
         "ppListName_dropdown": "",
         "homeTitle": "Home",
+        "logo": "",
         "appMessage": "",
         "appMessageIsAlert": false,
+        "startingID": null,
+        "showTaskAuth": false,
+        "validateEvery": 365,
         "orgchart_key": {},
         "fields": {
           "OrgType": {

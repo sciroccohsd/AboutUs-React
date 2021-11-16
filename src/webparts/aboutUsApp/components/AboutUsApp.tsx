@@ -24,7 +24,6 @@ interface IAboutUsAppState {
 }
 //#endregion
 
-
 export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAboutUsAppState, {}> {
 //#region PROPERTIES
     public static ctx: WebPartContext = null;   // must set the context before using this class
@@ -38,7 +37,7 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
 
         const url = new URL(window.location.href);
         let form = (url.searchParams.get("form") || "").toLowerCase(),
-            itemId = parseInt((url.searchParams.get("id") || "0"), 10);
+            itemId = this.getAboutUsID();
 
         // make sure 'display' param value is valid:
         if (["new", "edit"].indexOf(form) === -1) form = "";
@@ -46,13 +45,12 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         // initialize state
         this.state = {
             "displayType": form || this.props.displayType || "page",
-            "itemId": (itemId > 0) ? itemId : null
+            "itemId": itemId
         };
-        /* Observations on this.setState
-           1. Doesn't update objects unless it is reassigned (e.g.: Object.assign({}, this.state.###)).
-           2. this.state cannot be called directly after setting it. It requires an extra moment to update. i.g.: setTimeout(()=>{}, 0);
-           3. setState callback (2nd argument), gets called but state may not be updated. 
-        */
+
+        // handle back button
+        history.replaceState(this.state, document.title, window.location.href);
+        window.onpopstate = this.window_onpopstate.bind(this);
     }
 
     public render(): React.ReactElement<IAboutUsAppProps> {
@@ -62,7 +60,7 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         return (
             <div className={styles.aboutUsApp}>
                 { !this.props.list.exists ? this.createConfigureForm() : 
-                    <div>
+                    <>
                         { this.state.displayType === "page" ? this.createPageDisplay() : null }
                         {/* { this.state.displayType === "orgchart" ? this.createOrgChartDisplay() : null } */}
                         {/* { this.state.displayType === "accordian" ? this.createAccordianDisplay() : null } */}
@@ -71,7 +69,7 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
                         {/* { this.state.displayType === "broadcast" ? this.createBroadcastDisplay() : null } */}
                         { this.state.displayType === "new" ? this.createNewForm() : null }
                         { this.state.displayType === "edit" ? this.createEditForm() : null }
-                    </div>
+                    </>
                 }
             </div>
         );
@@ -93,7 +91,8 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
             properties: this.props.properties,
             list: this.props.list,
             itemId: this.state.itemId,
-            history: History
+            changeDisplay: this.changeDisplayType.bind(this),
+            changeItem: this.changeItemID.bind(this)
         });
     }
 
@@ -117,28 +116,41 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
             history: History,
         });
     }
+
+    private getAboutUsID(): number {
+        const url = new URL(window.location.href),
+            id = parseInt(url.searchParams.get(this.props.properties.urlParam) || "0", 10);
+
+        return (id > 0) ? id : null;
+    }
+
+    private changeDisplayType(displayType: string) {
+        // don't change view if the display type didn't change
+        if (this.state.displayType === displayType) return;
+
+        this.setState({...this.state, "displayType": displayType}, () => {
+            history.pushState(this.state, document.title);
+        });
+    }
+
+    private changeItemID(id: number, title: string, url: string) {
+        // don't change navigation if the ID didn't change
+        if (this.state.itemId === id) return;
+
+        this.setState({...this.state, "itemId": id}, () => {
+            history.pushState(this.state, document.title || title, url);
+        });
+    }
+
+    private window_onpopstate(evt) {
+        this.setState({
+            "displayType": (evt.state) ? evt.state.displayType : this.props.displayType,
+            "itemId": (evt.state) ? evt.state.itemId : this.getAboutUsID()
+        });
+    }
 //#endregion
 }
 
-
-// export function Wrapper({condition, wrapper, children}) {
-//     return (condition) ? wrapper(children) : children;
-// }
-export interface IWrapperProps {
-    condition: any;
-    wrapper: (children) => any;
-    children: any;
-    elseWrapper?: (children) => any;
-}
-export class Wrapper extends React.Component<IWrapperProps> {
-    public render(): React.ReactElement<any> {
-        return (this.props.condition)
-            ? this.props.wrapper(this.props.children)
-            : (this.props.elseWrapper)
-                ? this.props.elseWrapper(this.props.children)
-                : this.props.children ;
-    }
-}
 
 //#region PRIVATE LOG
 /** Prints out debug messages. Decorated console.info() or console.error() method.
@@ -157,6 +169,24 @@ export class Wrapper extends React.Component<IWrapperProps> {
             console.info.apply(null, args);
 
         }
+    }
+}
+//#endregion
+
+//#region GLOBAL HELPERS (REACT TYPES)
+export interface IWrapperProps {
+    condition: boolean;
+    wrapper: (children) => any;
+    children: React.ReactNode | React.ReactNodeArray;
+    else?: (children) => any;
+}
+export class Wrapper extends React.Component<IWrapperProps> {
+    public render(): React.ReactElement<any> {
+        return (this.props.condition)
+            ? this.props.wrapper(this.props.children)
+            : (this.props.else)
+                ? this.props.else(this.props.children)
+                : this.props.children ;
     }
 }
 //#endregion

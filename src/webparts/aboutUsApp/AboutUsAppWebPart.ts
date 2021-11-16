@@ -8,7 +8,9 @@ import {
     PropertyPaneButton,
     PropertyPaneButtonType,
     PropertyPaneCheckbox,
+    PropertyPaneChoiceGroup,
     PropertyPaneDropdown,
+    PropertyPaneDropdownOptionType,
     PropertyPaneHorizontalRule,
     PropertyPaneLabel,
     PropertyPaneLink,
@@ -32,12 +34,17 @@ export interface IAboutUsAppFieldOption {
     controlled: boolean;
 }
 export interface IAboutUsAppWebPartProps {
+    urlParam: string;
     description: string;
     displayType: string;
     displayTypeOptions: Partial<IPropertyPaneDropdownOption[]>;
     listName: string;
     ppListName_dropdown: string | number;
     homeTitle: string;
+    logo: string;
+    startingID: number;
+    showTaskAuth: boolean;
+    validateEvery: number;
     appMessage: string;
     appMessageIsAlert: boolean;
     orgchart_key: { [color: string]: string };
@@ -59,12 +66,14 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         "isReady": false,   // has data and propertypane is ready
         "showLoading": true,    // show loading icon
         "showPickListMenu": true,
-        "propertyChanged": false,   // flag when any property pane field changes. onClose, updates render if anything changed
+        "propertyChanged": false,   // flag when any property pane field changes. onClose, updates render
         "data": {
             "optListNames": [],
             "optSiteGroups": [],
             "optOrgChartColors": []
         },
+        "logoErrorMessage": "",
+        "startingIDErrorMessage": "",
         "broadcastDaysErrorMessage": ""
     };
 
@@ -175,8 +184,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
         } else {    // got data, propertypane is ready
 
-            // General page
-            pages.push(this.propertyPanePage_General());
+            // General page. settings that affect multiple views
+            if (this.list_.exists) pages.push(this.propertyPanePage_General());
 
             // other pages will only display after a list has been selected
             if (this.list_.exists) {
@@ -212,6 +221,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 }
             }
 
+            pages.push(this.propertyPanePage_List());
+
         }
 
         return {
@@ -220,7 +231,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         };
     }
 
-    /** PropertyPane Page
+    /** PropertyPane General - Settings that affect multiple views
      * @returns PropertyPane page and fields.
      */
     private propertyPanePage_General(): IPropertyPanePage {
@@ -232,19 +243,15 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 groupName: "General",
                 groupFields: []
             },
-            group_List = {
-                groupName: "Content list",
-                groupFields: []
-            },
-            group_Back = {
-                groupName: "",
+            group_Message = {
+                groupName: "Web Part Message",
                 groupFields: []
             };
 
         // display type
         group.groupFields.push(
             PropertyPaneDropdown("displayType", {
-                label: "Display Type",
+                label: "Display web part as",
                 options: this.properties.displayTypeOptions
             })
         );
@@ -252,38 +259,112 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         // Home name
         group_General.groupFields.push(
             PropertyPaneLabel("lblHomeName", {
-                text: "'Home' title is displayed as the starting point for the breadcrumb naviagation."
+                text: "'Home' is displayed as the starting point for the breadcrumb naviagation. \
+                    Changing this text has no other effect."
             })
         );
         group_General.groupFields.push(
             PropertyPaneTextField("homeTitle", {
-                label: "Edit 'Home' title: (Default: Home)"
+                label: "Edit 'Home' text: (Default: Home)"
+            })
+        );
+
+        // Default logo
+        group_General.groupFields.push(
+            PropertyPaneLabel("lblLogo", {
+                text: "Default About-Us page logo. Image size: 100px x 100px; Transparent background."
+            })
+        );
+        group_General.groupFields.push(
+            PropertyPaneTextField("logo", {
+                label: "(Optional) About-Us Page Logo: Enter the URL to the image.",
+                errorMessage: this.propertyPane_.logoErrorMessage
+            })
+        );
+
+        // Starting ID
+        group_General.groupFields.push(
+            PropertyPaneLabel("lblStartingID", {
+                text: "On first render, this About-Us item will be displayed by default. \
+                    If ID is 0 (zero) or the item ID does not exist, \
+                    the default starting item will be the item with the lowest ID (created first/earliest)."
+            })
+        );
+        group_General.groupFields.push(
+            PropertyPaneTextField("startingID", {
+                label: "(Optional) About-Us Starting Page ID:",
+                errorMessage: this.propertyPane_.startingIDErrorMessage
+            })
+        );
+
+        // Display Tasking Authority
+        group_General.groupFields.push(
+            PropertyPaneToggle("showTaskAuth", {
+                label: "Display Tasking Authority"
+            })
+        );
+
+        // Validate Information Every...
+        group_General.groupFields.push(
+            PropertyPaneDropdown("validateEvery", {
+                label: "About-Us information is valid for",
+                options: [
+                    {key: -1, text: "Never expires"},
+                    {key: 30, text: "30 days"},
+                    {key: 90, text: "90 days"},
+                    {key: 180, text: "180 days"},
+                    {key: 365, text: "1 year"},
+                    {key: 730, text: "2 years"}
+                ]
             })
         );
 
         // App message
-        group_General.groupFields.push(
+        group_Message.groupFields.push(
             PropertyPaneLabel("lblAppMessage", {
-                text: "'Notice' text appears at the top of this web part."
+                text: "Display important notifications at the top of this web part. \
+                    Highlighting the notification will decorate the message as important."
             })
         );
-        group_General.groupFields.push(
+        group_Message.groupFields.push(
             PropertyPaneTextField("appMessage", {
-                label: "Enter a static notification:"
+                label: "Enter notification: If blank, the notification section doesn't display."
             })
         );
-        group_General.groupFields.push(
+        group_Message.groupFields.push(
             PropertyPaneToggle("appMessageIsAlert", {
-                label: "Emphasize message "
+                label: "Highlight notification"
             })
         );
+
+        return {
+            header: {
+                description: this.properties.description
+            },
+            groups: [group, group_General, group_Message]
+        };
+    }
+
+    /** PropertyPane List
+     * @returns PropertyPane page and fields.
+     */
+     private propertyPanePage_List(): IPropertyPanePage {
+        const group = {
+                groupName: "",
+                groupFields: []
+            },
+            group_Back = {
+                groupName: "",
+                groupFields: []
+            };
 
         // list menu
         if (this.list_.exists && this.propertyPane_.showPickListMenu === false) {
             // show update list menu
+            group.groupName = "Update List";
 
             // link: current list
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneLink("lnkListName", {
                     text: "Current list: " + this.properties.listName,
                     href: this.list_.properties.RootFolder.ServerRelativeUrl,
@@ -292,14 +373,14 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             );
 
             // label: Update list
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneLabel("lblUpdateList", {
                     text: "Update list properties & fields:"
                 })
             );
 
             // button: Update list
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneButton("btnUpdateList", {
                     text: "Update now!",
                     onClick: async () => {
@@ -323,7 +404,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             );
 
             // label: Select a list
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneLabel("lblUpdateDescription", {
                     text: "Updating the list will try to update the current list with properties from the About-Us list template."
                 })
@@ -344,9 +425,10 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             );
 
         } else {    // show pick-a-list menu
+            group.groupName = "Initialize or Select List";
 
             // button: Create List
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneButton("btnCreateNewList", {
                     buttonType: PropertyPaneButtonType.Normal,
                     text: "Create New List",
@@ -355,14 +437,14 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             );
 
             //label: or
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneLabel("lblOr", {
                     text: " or"
                 })
             );
 
             // dropdown: Select from existing list
-            group_List.groupFields.push(
+            group.groupFields.push(
                 PropertyPaneDropdown("ppListName_dropdown", {
                     label: 'Select from an existing list:',
                     options: this.propertyPane_.data.optListNames
@@ -387,9 +469,9 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
         return {
             header: {
-                description: this.properties.description
+                description: "Content List Settings"
             },
-            groups: [group, group_General, group_List, group_Back]
+            groups: [group, group_Back]
         };
     }
 
@@ -495,7 +577,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             groupName: "About-Us Fields",
             groupFields: [
                 PropertyPaneLabel("lblRequiredDesc", {
-                    text: "Required: These fields are required to be filled out. If disabled (grayed-out), this field is required by the app and cannot be changed."
+                    text: "Required: These fields are required to be filled out. If disabled (grayed-out), \
+                        this field is required by the app and cannot be changed."
                 }),
                 PropertyPaneLabel("lblControlledFieldDesc", {
                     text: "Controlled Field: These fields can only be updated by members of the About-Us Owners or Managers group."
@@ -608,6 +691,9 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
      * @param newValue New value
      */
     public async onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any) {
+        const reImageURL = /(^[https:\/\/|\/].*\.(?:png|jpg|jpeg)(\?.*)?)$/i;
+        let tempValue;
+
         this.propertyPane_.propertyChanged = true;
 
         // do something based on which property (propertyPath) changed
@@ -617,12 +703,45 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 this.context.propertyPane.refresh();
                 break;
 
+            case "logo": // default About-Us page logo
+                newValue = trim(newValue || "");
+
+                if (reImageURL.test(newValue) || newValue === "") {
+                    this.propertyPane_.logoErrorMessage = "";
+                    this.properties.logo = newValue;
+
+                } else {
+                    this.propertyPane_.logoErrorMessage = "Invalid URL format. Path must be to .PNG or .JPG.";
+                    this.properties.logo = oldValue;
+                    this.context.propertyPane.refresh();
+                }
+                break;
+
+            case "startingID":
+                // if empty
+                if (trim(newValue).length === 0) newValue = "0";
+
+                tempValue = parseInt(newValue);
+
+                if (isNaN( tempValue )) {
+                    this.propertyPane_.startingIDErrorMessage = "Must be a valid number.";
+                    this.properties.startingID = oldValue;
+                    this.context.propertyPane.refresh();
+
+                } else if (tempValue < 0) {
+                    this.propertyPane_.startingIDErrorMessage = "Value must be 0 or greater.";
+                    this.properties.startingID = oldValue;
+                    this.context.propertyPane.refresh();
+
+                } else {
+                    this.propertyPane_.startingIDErrorMessage = "";
+                    this.properties.startingID = tempValue;
+
+                }                break;
+
             case "ppListName_dropdown":  // select a list dropdown changed
                 
                 if (newValue === "") return;
-
-                // this.propertyPane_.showLoading = true;
-                // this.context.propertyPane.refresh();
 
                 // show warning. we need to ensure the 'About-Us' list properties and fields are set/available
                 CustomDialog.confirm(
@@ -675,7 +794,6 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 this.resetListPermissions();
                 break;
 
-
             case "readerGroup": // list permissions updated
                 this.properties.readerGroup = newValue;
                 this.resetListPermissions();
@@ -685,21 +803,21 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 // if empty
                 if (trim(newValue).length === 0) newValue = "0";
 
-                const numValue = parseInt(newValue);
+                tempValue = parseInt(newValue);
 
-                if (isNaN( numValue )) {
+                if (isNaN( tempValue )) {
                     this.propertyPane_.broadcastDaysErrorMessage = "Must be a valid number.";
                     this.properties.broadcastDays = oldValue;
                     this.context.propertyPane.refresh();
 
-                } else if (numValue < 0 || numValue > 999) {
+                } else if (tempValue < 0 || tempValue > 999) {
                     this.propertyPane_.broadcastDaysErrorMessage = "Value must be between 0 and 999.";
                     this.properties.broadcastDays = oldValue;
                     this.context.propertyPane.refresh();
 
                 } else {
                     this.propertyPane_.broadcastDaysErrorMessage = "";
-                    this.properties.broadcastDays = numValue;
+                    this.properties.broadcastDays = tempValue;
 
                 }
 
@@ -947,7 +1065,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 //#endregion
 
 
-//#region GLOBAL HELPERS
+//#region GLOBAL HELPERS (NON-REACT TYPES)
 /** Pauses the script for a set amount of time.
 * @param milliseconds Amount of milliseconds to sleep.
 * @returns Promise
@@ -974,5 +1092,24 @@ export function isInRange_numDays(date: Date, numDaysToBroadcast: number): boole
         endDate = new Date(date.setDate(date.getDate() + numDaysToBroadcast));
 
     return (today >= startDate && today < endDate);
+}
+
+/** Check to see if any of the values are in the source array 
+ * @param source Array to check for values
+ * @param values Array of values
+ * @param fnCompare Boolean comparison function for complex values
+ * @returns True, if any value is in the source
+ */
+ export function sourceContainsAny(source: any[], values: any[], fnCompare?: (source: any[], value: any)=>boolean): boolean {
+    for (let i = 0; i < values.length; i++) {
+        const value = values[i];
+
+        if (fnCompare) {
+            if (fnCompare(source, value)) return true;
+        } else {
+            if (source.indexOf(value) > -1) return true;
+        }
+    }
+    return false;
 }
 //#endregion

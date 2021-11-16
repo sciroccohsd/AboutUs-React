@@ -7,13 +7,27 @@
 }
 
 @mixin default-section ($margin: 0 0 20px 0, $padding: 0) {
+  @include default-text-styles;
   margin: $margin;
   padding: $padding;
+}
+
+@mixin default-icon-styles ($color: inherit, $display: inline-block, $margin: auto 10px auto auto) {
+  color: $color;
+  display: $display;
+  margin: $margin
 }
 
 .aboutUsApp {
   margin: 0;
   padding: 0;
+
+  a:link,
+  a:active,
+  a:visited {
+    color: "[theme: Hyperlink, default:#03787c]";
+    text-decoration: none;
+  }
 
   .commandbar {
     background-color: "[theme: infoBackground, default:#f3f2f1]";
@@ -181,27 +195,35 @@
     background-color: "[theme: PageBackground, default:#ffffff]";
     display: grid;
     grid: 
-      'messageSection messageSection messageSection'
-      'headerSection headerSection headerSection'
-      'bodySection bodySection sideSection'
-      'footerSection footerSection footerSection';
+      'messageSection messageSection'
+      'headerSection headerSection'
+      'bodySection sideSection'
+      'footerSection footerSection';
     grid-gap: 10px;
-    grid-template-columns: auto auto 350px;
+    grid-template-columns: auto min-content;
     margin: 0;
     padding: 0;
 
     .messageSection {
       grid-area: messageSection;
-      @include default-text-styles;
       @include default-section($margin: 0);
+      background-color: "[theme: EmphasisBackground, default:#03787c]";
+      border-color: "[theme: EmphasisBorder, default:#025c5f]";
+      border-radius: 5px;
+      border-style: solid;
+      border-width: 1px;
+      color: "[theme: EmphasisText, default:#ffffff]";
+      font-size: "[theme: mediumPlusFontSize, default:16px]";
+      font-weight: 100;
+      padding: 5px 10px;
 
       &.isAlert {
         background-color: "[theme: errorBackground, default:#FDE7E9]";
-        border: 1px solid "[theme: errorText, default:#a4262c]";
-        border-radius: 5px;
+        border-color: "[theme: errorText, default:#a4262c]";
+        border-width: 2px;
         color: "[theme: errorText, default:#a4262c]";
-        font-size: "[theme: mediumPlusFontSize, default:16px]";
-        margin: 5px 15px;
+        font-weight: 400;
+        margin: 5px 10px;
       }
     }
 
@@ -209,11 +231,11 @@
       grid-area: headerSection;
       display: grid;
       grid: 
-        'logoSection menuSection menuSection toolbarSection'
-        'logoSection navSection navSection searchSection'
-        'logoSection header header searchSection';
+        'menuSection menuSection menuSection'
+        'logoSection navSection searchSection'
+        'logoSection header header';
       grid-gap: 10px;
-      grid-template-columns: 120px auto auto auto;
+      grid-template-columns: min-content auto min-content;
       @include default-text-styles;
       background-color: "[theme: HeaderBackground, default:rgba(255, 255, 255, 0.85)]";
       border-bottom: 3px solid;
@@ -246,107 +268,12 @@
         }
       }
 
-      .toolbarSection {
-        grid-area: toolbarSection;
-        @include default-text-styles;
-      }
-
       .navSection {
         grid-area: navSection;
-        @include default-text-styles;
-        box-sizing: border-box;
-        left: 0;
-        position: fixed;
-        top: 0;
-
-        .navList {
-          list-style: none;
-          margin: 0;
-          padding: 0;
-
-          > .navItem,
-          > .navItem > a {
-            display: inline-block;
-            text-decoration: none;
-            white-space: nowrap;
-
-            &:hover {
-              > .navSubList {
-                display: block;
-              }
-            }
-
-            > .navSubList {
-              display: none;
-              list-style: none;
-              margin: 0;
-              max-height: 600px;
-              max-width: 300px;
-              overflow: hidden auto;
-              padding: 0;
-              transition: 250ms;
-
-              > .navSubItem,
-              > .navSubItem > a {
-                display: block;
-                text-decoration: none;
-                word-break: break-word;
-              }
-
-            }
-          }
-        }
       }
 
       .searchSection {
         grid-area: searchSection;
-        @include default-text-styles;
-  
-        .searchContainer {
-          background-color: "[theme: inputBackground, default:#ffffff]";
-          border-color: "[theme: inputBorder, default:#605e5c]";
-          border-width: 1px;
-          border-style: solid;
-          color: "[theme: BodyText, default:#323130]";
-          display: flex;
-          justify-content: space-between;
-          padding: 0;
-          margin: 0;
-          width: 300px;
-  
-          .searchbox {
-            border: none;
-            margin: 0;
-            padding-left: 5px;
-            width: 100%;
-  
-            &:focus,
-            &:active {
-              outline: none;
-            }
-          }
-          .searchButton {
-            height: inherit;
-          }
-        }
-
-        .searchResultsContainer {
-          display: block;
-          position: relative;
-          margin: 0 auto;
-          max-height: 600px;
-          overflow: hidden auto;
-          padding: 0;
-          width: 300px;
-
-          a:link,
-          a:active,
-          a:visited,
-          .searchResult {
-            margin: 5px;
-            text-decoration: none;
-          }
-        }
       }
 
       .header {
@@ -358,8 +285,6 @@
     .bodySection {
       grid-area: bodySection;
       @include default-text-styles;
-      border-top: 5px solid;
-      border-color: "[theme: HeaderAccentLines, default:#13898d]";
       margin: 0;
       padding: 0;
     }
@@ -367,8 +292,6 @@
     .sideSection {
       grid-area: sideSection;
       @include default-text-styles;
-      border-top: 5px solid;
-      border-color: "[theme: HeaderAccentLines, default:#13898d]";
       margin: 0;
       padding: 0;
     }
@@ -381,6 +304,86 @@
     }
   }
 
+  .menuSection {
+    @include default-text-styles($size: small);
+
+    .menuItem {
+      height: 14px;
+    }
+  }
+
+  .navSection {
+    @include default-text-styles;
+    box-sizing: border-box;
+    left: 0;
+    position: relative;
+    top: 0;
+
+    .topNavList {
+      color: "[theme: Navigation, default:#605e5c]";
+      font-weight: 600;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      white-space: nowrap;
+
+      .navItem {
+        color: "[theme: Navigation, default:#605e5c]";
+
+        .navText {
+          text-decoration: none;
+          white-space: nowrap;
+        }
+
+        &:hover .subNavContainer {
+          display: block;
+          opacity: 1;
+          transition: opacity 250ms linear;
+        }
+
+      }
+
+      .topNavItem {
+        color: inherit !important;
+        display: inline-block;
+        
+        &:not(:last-child) > .navText::after {
+          content: "\25B8";
+          display: inline-block;
+          margin-left: 10px;
+          margin-right: 10px;
+        }
+      }
+
+      .subNavContainer {
+        background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
+        border-left: 3px solid;
+        border-left-color: "[theme: NavigationAccent, default:#03787c]";
+        border-top: 0;
+        display: none;
+        font-weight: normal;
+        margin-left: -5px;
+        max-height: 600px;
+        opacity: 0;
+        overflow: hidden auto;
+        position: absolute;
+        transition: opacity 250ms linear;
+        width: 300px;
+        z-index: 100;
+
+        .subNavList {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+
+          .subNavItem {
+            display: block;
+            margin: 3px 5px;
+          }
+        }
+      }
+    }
+  }
 
   .sectionBanner {
     @include default-text-styles($size: "[theme: mediumPlusFontSize, default:16px]");
@@ -392,35 +395,49 @@
 
   .headerText {
     display: block;
-    font-size: "[theme: xLargeFontSize, default:20px]";
+    font-size: "[theme: xxLargeFontSize, default:28px]";
     font-weight: 100;
     margin: 3px;
     padding: 0;
   }
   .subtitle {
     color: "[theme: HeaderSubtleText, default:#8a8886]";
-    font-size: "[theme: smallFontSize, default:12px]";
+    font-size: "[theme: mediumFontSize, default:14px]";
   }
 
   .missionContainer {
-    @include default-text-styles;
     @include default-section;
+    border-top: 5px solid;
+    border-color: "[theme: HeaderAccentLines, default:#13898d]";
+
+    &.showLabel {
+      &::before {
+        content: attr(data-label);
+        font-weight: 600;
+        margin-right: 1em;
+      }
+    }
   }
 
   .tasksContainer {
-    @include default-text-styles;
     @include default-section;
+
+    &.showLabel {
+      &::before {
+        content: attr(data-label);
+        font-weight: 600;
+        margin-right: 1em;
+      }
+    }
   }
 
   .contentContainer {
     @include default-text-styles($size: "[theme: mediumPlusFontSize, default:16px]");
-    @include default-section;
     border-top: 5px solid;
-    border-color: "[theme: HeaderAccentLines, default:#13898d]";
+    border-color: "[theme: HeaderLines, default:#a19f9d]";
   }
 
   .subContentContainer {
-    @include default-text-styles;
     @include default-section($margin: 20px 10px, $padding: 0 10px);
     background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
     border-color: "[theme: HeaderLines, default:#a19f9d]";
@@ -431,7 +448,6 @@
   }
 
   .keywordsContainer {
-    @include default-text-styles;
     @include default-section;
   }
 
@@ -439,32 +455,29 @@
     @include default-text-styles;
     @include default-section($margin: 0 auto);
     background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
-    border-color: "[theme: HeaderLines, default:#a19f9d]";
+    border-color: "[theme: HeaderAccentLines, default:#13898d]";
     border-radius: 0 0 5px 5px;
     border-style: solid;
     border-width: 5px 1px 1px 1px;
     text-align: center;
-    width: 100%;
   }
 
   .linksContainer {
-    @include default-text-styles;
     @include default-section;
   }
 
   .sopsContainer {
-    @include default-text-styles;
     @include default-section;
   }
 
   .contactsContainer {
-    @include default-text-styles;
     @include default-section;
   }
 
   .officeInformationContainer {
     @include default-text-styles;
     padding: 0;
+    width: 300px;
 
     .officeInfo {
       @include default-section;
@@ -504,16 +517,122 @@
   .contentManagersContainer {
     @include default-text-styles;
 
-    a:link,
-    a:active,
-    a:visited,
     .email {
-      text-decoration: none;
+      display: inline-block;
+    }
+
+    .contentManagersList {
+      list-style: none;
+      margin: 3px 10px;
+      padding: 0;
+
+      > li {
+        display: inline-block;
+        margin: 3px 10px 3px 10px;
+      }
+    }
+
+    .contentManagersMessage {
+      color: "[theme: CommandLinks, default:#605e5c]";
+      font-style: italic;
     }
   }
 
   .validatedContainer {
     @include default-text-styles;
+    margin-top: 20px;
+
+    .validatedText {
+      color: "[theme: CommandLinks, default:#605e5c]";
+      font-style: italic;
+    }
+
+    .validateButton {
+      border-radius: 5px;
+      border-style: solid;
+      border-width: 1px;
+      margin: 10px 0;
+    }
+    .validatedGood {
+      color: "[theme: successText, default:#107C10]";
+      background-color: "[theme: successBackground, default:#DFF6DD]";
+      border-color: "[theme: successText, default:#107C10]";
+    }
+    .validatedWarning {
+      color: "[theme: warningText, default:#323130]";
+      background-color: "[theme: warningBackground, default:#FFF4CE]";
+      border-color: "[theme: warningHighlight, default:#ffb900]";
+    }
+    .validatedExpired {
+      color: "[theme: errorText, default:#a4262c]";
+      background-color: "[theme: errorBackground, default:#FDE7E9]";
+      border-color: "[theme: errorIcon, default:#A80000]";
+    }
+  }
+
+  .searchContainer {
+    @include default-text-styles($size: 12px);
+    display: block;
+    margin: 0;
+    position: relative;
+
+    .searchboxWrapper {
+      border-width: 1px;
+      border-style: solid;
+      display: flex;
+      justify-content: space-between;
+      padding: 0;
+      margin: 0;
+      width: 268px;
+
+      .searchbox {
+        border: none;
+        height: 20px;
+        margin: 0;
+        padding-left: 5px;
+        width: 100%;
+
+        &::placeholder {
+          font-style: italic;
+        }
+
+        &:focus,
+        &:active {
+          outline: none;
+        }
+      }
+      .button {
+        height: 20px;
+        vertical-align: middle;
+      }
+    }
+
+    .searchResultsWrapper {
+      background-color: inherit;
+      border-bottom-left-radius: 5px;
+      border-bottom-right-radius: 5px;
+      border-top: 0;
+      box-shadow: 7px 5px 5px -3px rgba(92,92,92,0.4), 0px 5px 10px rgba(92,92,92,0.6), -7px 5px 5px -3px rgba(92,92,92,0.4);
+      font-weight: normal;
+      margin-left: 0;
+      max-height: 600px;
+      overflow: hidden auto;
+      position: absolute;
+      width: 268px;
+      z-index: 100;
+
+      .searchResultsList {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+
+        .searchResult {
+          display: block;
+          margin: 3px 5px;
+        }
+      }
+    }
+
   }
 }
 
@@ -521,6 +640,11 @@
 /** ABOUT US DISPLAY COMPLEX DATA ITEMS WITH SORTING ABILITY **/
 /** This needs to be at the top level (not nested) because dragged elements
  **  are copied to the BODY and will lose any nested references. **/
+
+/** ICON **/
+.fabricUIIcon {
+  @include default-icon-styles($color: "[theme: HeaderText, default:#323130]");
+}
 
 /** TASK ITEMS **/
 .aboutUsTaskItem {
@@ -531,7 +655,24 @@
   .task {
     &::before {
       content: "\2605"; // black star
-      padding-right: 1em;
+      margin-right: 10px;
+    }
+
+  }
+
+  .taskAuthContainer {
+    display: block;
+    margin-left: 20px;
+    word-break: break-word;
+
+    .taskAuthText {
+      color: "[theme: neutralSecondaryAlt, default:#8a8886]";
+      font-style: italic;
+
+      // &::before {
+      //   content: "Tasking Authority: ";
+      //   margin-right: 10px;
+      // }
     }
   }
 }
@@ -540,10 +681,10 @@
 .aboutUsBioItem {
   @include default-text-styles;
   display: inline-block;
-  margin: 5px auto !important;
-  padding: 5px;
+  margin: 5px auto 15px auto !important;
+  padding: 0;
   text-align: center;
-  width: 300px;
+  width: 280px;
   vertical-align: top;
 
   .bioPosition {
@@ -562,12 +703,8 @@
   }
 
   .bioNameContainer {
-    a:link,
-    a:visited,
-    a:active,
     .bioLink {
-      color: "[theme: Hyperlink, default:#03787c]";
-      text-decoration: none;
+      display: block;
     }
 
     .bioName {
@@ -588,21 +725,9 @@
   width: 300px;
   vertical-align: top;
 
-  a:link,
-  a:visited,
-  a:active,
   .link {
-    color: "[theme: Hyperlink, default:#03787c]";
     display: block;
-    text-decoration: none;
     word-break: break-all;
-
-    .linkIcon {
-      display: inline-block;
-      height: .9em;
-      margin: 0 5px 0 0;
-      width: .9em;
-    }
 
   }
 }
@@ -610,14 +735,25 @@
 /** CONTACT ITEMS **/
 .aboutUsContactItem {
   @include default-text-styles;
-  color: "[theme: neutralTertiary, default:#a19f9d]";
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: "[theme: CommandLinks, default:#605e5c]";
   display: inline-block;
-  margin: 5px auto !important;
-  padding: 10px;
+  margin: 15px !important;
+  padding: 0;
   text-align: center;
   vertical-align: top;
-  width: 300px;
+  width: 273px;
   word-break: break-word;
+
+  &:hover {
+    // background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
+    border-color: "[theme: inputBorderHovered, default:#323130]";
+
+    .nameContainer {
+      background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
+    }
+  }
 
   .nameContainer {
     border-bottom: 1px solid "[theme: neutralTertiary, default:#a19f9d]";
@@ -635,15 +771,15 @@
     }
   }
 
-  a:link,
-  a:visited,
-  a:active,
   .link {
     display: block;
     margin: auto;
     text-align: center;
     text-decoration: none;
-    padding-bottom: 5px;
+  }
+
+  .redContactsText {
+    color: "[theme: redDark, default:#a4262c]";
   }
 
   .phoneContainer {
@@ -686,12 +822,6 @@
   .keyword {
     @include default-text-styles;
     word-break: break-word;
-    
-    &::before {
-      content: "\2606";
-      font-size: .8em;
-      padding-right: 1em;
-    }
 
     .button {
       background-color: transparent;

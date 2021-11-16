@@ -415,7 +415,7 @@
         "type": "SP.FieldUser"
       },
       "DefaultValue": null,
-      "Description": "Content Managers must be added to each page they will manage.\r\nPlus, added to the AboutContent_Managers permission group. Contact the Webmasters to be added/removed from this permission group.",
+      "Description": "Content Managers are responsible for the information on this page.",
       "InternalName": "ContentManagers",
       "Required": false,
       "Title": "Content Managers",

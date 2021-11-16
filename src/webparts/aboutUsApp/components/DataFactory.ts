@@ -20,9 +20,11 @@ import { IViewAddResult, IViewInfo, IViews, IViewUpdateResult } from "@pnp/sp/vi
 import { IForms } from "@pnp/sp/forms";
 import { IItem, IItems } from "@pnp/sp/items";
 import { ISiteGroupInfo, ISiteGroups } from "@pnp/sp/site-groups/types";
-import { IBasePermissions, IRoleAssignmentInfo, IRoleDefinitionInfo } from "@pnp/sp/security";
+import { IBasePermissions, IRoleAssignmentInfo, IRoleDefinitionInfo, PermissionKind } from "@pnp/sp/security";
 import "@pnp/sp/site-users/web";
 import { ISiteUserInfo } from "@pnp/sp/site-users/types";
+import "@pnp/sp/search";
+import { ISearchQuery, Search, SearchResults } from "@pnp/sp/search";
 import { IDropdownOption, IIconProps, IStyle } from "office-ui-fabric-react";
 import { IAboutUsAppWebPartProps, sleep } from "../AboutUsAppWebPart";
 
@@ -134,6 +136,12 @@ export interface IDataStructureItem {
     data?: Record<string, any>;
 }
 
+export interface IUserPermissions {
+    canAdd: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+}
+
 //#endregion
 
 
@@ -157,7 +165,8 @@ export default class DataFactory {
     }
 
     /* How to get list 'fields' template from an existing SP List.
-        fetch(_spPageContextInfo.webServerRelativeUrl + "_api/web/lists/getByTitle('[LIST_NAME]')/fields?$filter=(CanBeDeleted eq true) or (InternalName eq 'Title')",
+        fetch(_spPageContextInfo.webServerRelativeUrl + 
+            "_api/web/lists/getByTitle('[LIST_NAME]')/fields?$filter=(CanBeDeleted eq true) or (InternalName eq 'Title')",
             { headers: new Headers({ accept: "application/json;odata=verbose;" }) })
             .then( response => response.json() )
             .then( json => console.info(json.d.results) );
@@ -281,7 +290,13 @@ export default class DataFactory {
         if (updateViews) await this.ensureViews();
 
         // get list properties
-        this.properties_ = await this.api.expand("DefaultView", "Forms", "RoleAssignments", "RoleAssignments/Member", "RoleAssignments/RoleDefinitionBindings", "RootFolder").get({ "headers": { "Accept": "application/json;odata=verbose"} });
+        this.properties_ = await this.api.expand(
+            "DefaultView",
+            "Forms",
+            "RoleAssignments",
+            "RoleAssignments/Member",
+            "RoleAssignments/RoleDefinitionBindings",
+            "RootFolder").get({ "headers": { "Accept": "application/json;odata=verbose"} });
     }
 //#endregion
 
@@ -336,7 +351,9 @@ export default class DataFactory {
      * @param existingFields Array of existing Field Objects from the list.  This is what the list field looks like now.
      * @returns status.exists = if field already exists; status.update = if any field properties needs to be updated.  
      */
-    private static compareTemplateToListField(field: { [prop: string]: any }, existingFields: { [prop: string]: any }[]): IFieldStatusResults {
+    private static compareTemplateToListField(
+        field: { [prop: string]: any },
+        existingFields: { [prop: string]: any }[]): IFieldStatusResults {
 
         // set default status: does not exist & no update
         let status = { "exists": false, "update": null };
@@ -405,7 +422,8 @@ export default class DataFactory {
                     // exit now if list doesn't exist.
                     if (list === null) {
                         // unable to set lookup list because the list doesn't exist
-                        LOG(`ERROR: createField(): Unable to create lookup field because the list '${ field.LookupList }' doesn't exist!`, field);
+                        LOG(`ERROR: createField(): Unable to create lookup field because the list '${ field.LookupList }' \
+                            doesn't exist!`, field);
                         return null;
                     }
 
@@ -489,6 +507,9 @@ export default class DataFactory {
         return updateResult;
     }
 
+    public getExistingField_InternalName(internalName: string): IDataFactoryFieldInfo {
+        return find(this.fields, ["InternalName", internalName]);
+    }
 //#endregion
 
 //#region VIEWS
@@ -893,7 +914,36 @@ export default class DataFactory {
 //#endregion
 
 //#region USER
+    public async getUserPermissions(): Promise<IUserPermissions> {
+        const requests = [this.api.currentUserHasPermissions(PermissionKind.AddListItems),
+            this.api.currentUserHasPermissions(PermissionKind.EditListItems),
+            this.api.currentUserHasPermissions(PermissionKind.DeleteListItems)],
+            [canAdd, canEdit, canDelete] = await Promise.all(requests);
 
+        return {
+            canAdd: canAdd,
+            canEdit: canEdit,
+            canDelete: canDelete
+        };
+    }
+
+    public async getCurrentUser(): Promise<ISiteUserInfo> {
+        return await sp.web.currentUser();
+    }
+//#endregion
+
+//#region SEARCH
+    public async search(queryText): Promise<SearchResults> {
+        //const search = Search(`/lists/${this.title}`);
+        return await sp.search(<ISearchQuery>{
+            // Querytext: `${queryText}+AND+ListID:${this.properties.Id}`,
+            Querytext: queryText,
+            RowLimit: 10,
+            EnablePhonetic: true,
+            SourceId: this.properties.Id,
+            SelectProperties: ["Title", "Path", "Name"]
+        });
+    }
 //#endregion
 
 //#region HELPERS
@@ -901,9 +951,7 @@ export default class DataFactory {
         webpartProperties: IAboutUsAppWebPartProps,
         select: string[] = ["ID", "Title", "DisplayType", "Name", "OrgType", "OrderBy", "Parent/ID"], 
         expand: string[] = ["Parent"],
-        orderBy: [string, boolean] = ["OrderBy", true],
-        metadataType: "verbose" | "nometadata" | "minimal" = "nometadata"
-
+        orderBy: [string, boolean] = ["OrderBy", true]
     ): Promise<Record<(number | string), IDataStructureItem>> {
 
         // get all items from the list
@@ -913,7 +961,7 @@ export default class DataFactory {
             structure: Record<(number | string), IDataStructureItem> = {};
 
         // add root to structure
-        structure["root"] = {
+        structure["_root"] = {
             "ID": 0,
             "Title": webpartProperties.homeTitle,
             "DisplayType": ["_root"],
@@ -928,8 +976,8 @@ export default class DataFactory {
                 "ID": 0,
                 "Title": orgType,
                 "DisplayType": ["_orgType"],
-                "OrderBy": -100 - i,
-                "ParentID": "root",
+                "OrderBy": -110 + i,
+                "ParentID": "_root",
                 "children": []
             };
         });
@@ -986,6 +1034,21 @@ export default class DataFactory {
 
         } catch(er) {
             LOG("ERROR! Unable to get site groups:", er);
+            return null;
+        }
+    }
+
+    /** Get current web's site group information
+     * @returns Array of site group inforamtion
+     */
+    public static async getSiteGroupMembers(groupID): Promise<ISiteUserInfo[]> {
+        try{
+
+            const users = await sp.web.siteGroups.getById(groupID).users();
+            return users;
+
+        } catch(er) {
+            LOG("ERROR! Unable to get site group members:", er);
             return null;
         }
     }
@@ -1122,7 +1185,8 @@ export default class DataFactory {
 
         // special characters, except underscores and parathesis'
         if ((/^[a-zA-Z0-9-_() ]+$/gi).test(name) === false) {
-            return { "valid": false, "message": "List name cannot contain special characters.\nUnderscores, parathisis' and dashes are allowed." };
+            return { "valid": false, "message": "List name cannot contain special characters.\nUnderscores, parathisis' \
+                and dashes are allowed." };
         }
         
         // if list exists = not valid;

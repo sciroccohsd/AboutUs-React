@@ -248,7 +248,6 @@ export class RichTextControl extends React.Component<IRichTextControlProps> {
             <FieldWrapper>
                 <LabelElement htmlFor={ this.props.id } required={ this.props.required }>{ this.props.label }</LabelElement>
                 <div className={ richTextWrapperClassNames.join(" ") }>
-                    {/* <RichText value={this.props.value} isEditMode={!this.props.disabled} onChange={this.props.onChange} placeholder={this.props.placeholder} /> */}
                     { React.createElement(RichText, props) }
                 </div>
                 <DescriptionElement text={this.props.description}/>
@@ -424,6 +423,7 @@ export class CustomControlComplexData extends React.Component<ICustomControlComp
                 onClick: this.props.onAdd
             },
             displayProps: AboutUsDisplay.IAboutUsComplexDataDisplayProps = {
+                properties: this.props.properties,
                 values: this.props.values,
                 showEditControls: (this.props.disabled === true) ? false : true,
                 onOrderChange: this.props.onOrderChange,
@@ -477,10 +477,6 @@ export class CustomControlKeywords extends React.Component<ICustomControlKeyword
                 disabled: this.props.disabled,
                 onClick: () => { this.setState(this.props.onAdd(this.state.value)); }
             },
-            tooltipProps: ITooltipHostProps = {
-                content: `Add ${this.props.label}`,
-                id: `ttCustomControlTags-addButton`
-            },
             displayProps: AboutUsDisplay.IAboutUsKeywordsDisplayProps = {
                 values: this.props.values,
                 showEditControls: (this.props.disabled === true) ? false : true,
@@ -497,7 +493,9 @@ export class CustomControlKeywords extends React.Component<ICustomControlKeyword
                         disabled={this.props.disabled}
                         value={ this.state.value }
                         onChange={ evt => this.setState({"value": evt.target.value}) }
-                        onKeyPress={ evt => { if (evt.keyCode === 13 || evt.which === 13) this.setState(this.props.onAdd(this.state.value)); } } />
+                        onKeyPress={ evt => {
+                            if (evt.keyCode === 13 || evt.which === 13) this.setState(this.props.onAdd(this.state.value)); 
+                        } } />
                     { (!this.props.disabled) ? 
                         <TooltipHost content="Add">
                             { React.createElement(IconButton, addButtonProps) }
@@ -512,10 +510,6 @@ export class CustomControlKeywords extends React.Component<ICustomControlKeyword
                 </div>
             </FieldWrapper>
         );
-    }
-
-    private textbox_onChange(evt) {
-        this.setState({"value": evt.target.value});
     }
 }
 //#endregion

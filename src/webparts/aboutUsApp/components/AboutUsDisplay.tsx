@@ -1,33 +1,44 @@
 // About-Us data display elements.
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
-import { assign, divide, find, trim } from 'lodash';
+import { assign, trim } from 'lodash';
+import * as moment from 'moment';
 
 // https://docs.microsoft.com/en-us/javascript/api/office-ui-fabric-react?view=office-ui-fabric-react-latest
-import { CommandBar, Dropdown,
+import { ActionButton, CommandBar, DirectionalHint,
     FontIcon,
     IButtonProps,
     ICommandBarItemProps,
+    ICommandBarStyles,
     IconButton,
-    IDropdownProps,
-    ILabelProps,
-    ISpinnerProps,
-    ITextFieldProps, 
     ITooltipProps, 
-    Label, 
-    Spinner, 
-    Stack, 
-    TextField, 
     TooltipHost} from 'office-ui-fabric-react';
-import { IAboutUsValueState } from './AboutUsForm';
 
 //> npm install react-easy-sort
 import SortableList, { SortableItem } from 'react-easy-sort';
-import AboutUsAppWebPart, { IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
+import AboutUsAppWebPart, { sourceContainsAny, IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
 import { Wrapper } from './AboutUsApp';
 import DataFactory, { IDataStructureItem } from './DataFactory';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
+import { ISiteUserInfo } from '@pnp/sp/site-users/types';
+import { UserCustomActions } from '@pnp/sp/user-custom-actions/types';
+import { IActionProps } from '@pnp/spfx-controls-react';
+import { ISearchResult } from '@pnp/sp/search';
+import { IComponentStyles } from '@uifabric/foundation';
 
+
+//#region ICON
+    export interface IIconProps {
+        iconName: string;
+        className?: string;
+    }
+    
+    export class Icon extends React.Component<IIconProps> {
+        public render(): React.ReactElement<IIconProps> {
+            return <FontIcon iconName={ this.props.iconName } className={ this.props.className } />;
+        }
+    }
+//#endregion
 
 //#region COMPLEX DATA DISPLAYS
     //#region COMPLEX DATA INTERFACE
@@ -56,8 +67,8 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
     //#region COMMAND BAR WITH EDIT & DELETE COMPLEX DATA ITEM BUTTONS
     class ComplexDataCommandBar extends React.Component<IAboutUsComplexDataCommandBarProps> {
         public render(): React.ReactElement<IAboutUsComplexDataCommandBarProps> {
-            const key = this.props.itemIndex;
-            let commandBarItems: ICommandBarItemProps[] = [
+            const key = this.props.itemIndex,
+                commandBarItems: ICommandBarItemProps[] = [
                     {
                         key: `btnEditTask${key}`,
                         text: "Edit",
@@ -81,14 +92,12 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                 ];
             
             // add extra buttons
-            if (this.props.extraButtons && this.props.extraButtons.length > 0) commandBarItems = commandBarItems.concat(this.props.extraButtons);
+            if (this.props.extraButtons && this.props.extraButtons.length > 0) commandBarItems.concat(this.props.extraButtons);
             
-            return (
-                <CommandBar
+            return <CommandBar 
                     items={ commandBarItems }
                     farItems={ commandBarFarItems }
-                    className={ styles.aboutUsDisplayItemCommandBar } />
-            );
+                    className={ styles.aboutUsDisplayItemCommandBar } />;
         }
     }
     //#endregion
@@ -106,13 +115,14 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     itemIndex: this.props.itemIndex,
                     onEdit: this.props.onEdit,
                     onDelete: this.props.onDelete,
-                    extraButtons: (typeof this.props.extraButtons === "function") ? this.props.extraButtons(key, value) : this.props.extraButtons
+                    extraButtons: (typeof this.props.extraButtons === "function") ? 
+                        this.props.extraButtons(key, value) : this.props.extraButtons
                 };
 
             if (this.props.showEditControls) itemClasses.push(styles.aboutUsSortableItem);
 
             if (value.tooltip) tooltipText.push(value.tooltip);
-            if (value.auth) tooltipText.push("Tasking authority: " + value.auth);
+            if (!this.props.properties.showTaskAuth && value.auth) tooltipText.push("Tasking authority: " + value.auth);
 
             // for SortableItem elements the class names must be global.
             return (
@@ -123,6 +133,12 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     <div className={ itemClasses.join(" ") }>
                         <TooltipHost tooltipProps={ TooltipProps(tooltipText.join("\n")) } >
                             <div className={ styles.task }>{ value.text }</div>
+                            { (this.props.properties.showTaskAuth && value.auth) ?  
+                                <div className={ styles.taskAuthContainer }>
+                                    <Icon iconName="Childof" className={ styles.fabricUIIcon }/>
+                                    <span className={ styles.taskAuthText }>{ value.auth }</span>
+                                </div>
+                            : null }
                         </TooltipHost>
                         {
                             (this.props.showEditControls) ? React.createElement(ComplexDataCommandBar, commandBarProps) : null
@@ -142,11 +158,12 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                         allowDrag={ this.props.showEditControls }
                         onSortEnd={ this.props.onOrderChange }
                         className={ (this.props.showEditControls) ? styles.aboutUsSortableList : null }
-                        draggedItemClassName={ (this.props.showEditControls) ? styles.aboutUsSortableItemDragged : null } >{ children }</SortableList> }
+                        draggedItemClassName={ styles.aboutUsSortableItemDragged } >{ children }</SortableList> }
                     >
                     {
                         (this.props.values && this.props.values instanceof Array) ?
                             this.props.values.map((value, ndx) => ( React.createElement(TaskItem, {
+                                properties: this.props.properties,
                                 value: value,
                                 itemIndex: ndx,
                                 showEditControls: this.props.showEditControls,
@@ -177,7 +194,8 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     itemIndex: this.props.itemIndex,
                     onEdit: this.props.onEdit,
                     onDelete: this.props.onDelete,
-                    extraButtons: (typeof this.props.extraButtons === "function") ? this.props.extraButtons(key, value) : this.props.extraButtons
+                    extraButtons: (typeof this.props.extraButtons === "function") ? 
+                        this.props.extraButtons(key, value) : this.props.extraButtons
                 };
 
             if (this.props.showEditControls) itemClasses.push(styles.aboutUsSortableItem);
@@ -230,7 +248,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                         allowDrag={ this.props.showEditControls }
                         onSortEnd={ this.props.onOrderChange }
                         className={ (this.props.showEditControls) ? styles.aboutUsSortableList : null }
-                        draggedItemClassName={ (this.props.showEditControls) ? styles.aboutUsSortableItemDragged : null } >{ children }</SortableList> }
+                        draggedItemClassName={ styles.aboutUsSortableItemDragged } >{ children }</SortableList> }
                     >
                     {
                         (this.props.values && this.props.values instanceof Array) ?
@@ -263,7 +281,8 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     itemIndex: this.props.itemIndex,
                     onEdit: this.props.onEdit,
                     onDelete: this.props.onDelete,
-                    extraButtons: (typeof this.props.extraButtons === "function") ? this.props.extraButtons(key, value) : this.props.extraButtons
+                    extraButtons: (typeof this.props.extraButtons === "function") ? 
+                        this.props.extraButtons(key, value) : this.props.extraButtons
                 };
 
             if (this.props.showEditControls) itemClasses.push(styles.aboutUsSortableItem);
@@ -279,7 +298,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     <div className={ itemClasses.join(" ") }>
                         <TooltipHost tooltipProps={ TooltipProps(tooltipText.join("\n")) } >
                             <a className={ styles.link } href={ value.url } target={ (value.target) ? "_blank" : "_self" }>
-                                <FontIcon iconName="Link" className={ styles.linkIcon } />
+                                <Icon iconName="Link12" className={ styles.fabricUIIcon } />
                                 { value.text || value.url }
                             </a>
                         </TooltipHost>
@@ -301,7 +320,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                         allowDrag={ this.props.showEditControls }
                         onSortEnd={ this.props.onOrderChange }
                         className={ (this.props.showEditControls) ? styles.aboutUsSortableList : null }
-                        draggedItemClassName={ (this.props.showEditControls) ? styles.aboutUsSortableItemDragged : null } >{ children }</SortableList> }
+                        draggedItemClassName={ styles.aboutUsSortableItemDragged } >{ children }</SortableList> }
                     >
                     {
                         (this.props.values && this.props.values instanceof Array) ?
@@ -334,7 +353,8 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     itemIndex: this.props.itemIndex,
                     onEdit: this.props.onEdit,
                     onDelete: this.props.onDelete,
-                    extraButtons: (typeof this.props.extraButtons === "function") ? this.props.extraButtons(key, value) : this.props.extraButtons
+                    extraButtons: (typeof this.props.extraButtons === "function") ? 
+                        this.props.extraButtons(key, value) : this.props.extraButtons
                 };
 
             if (this.props.showEditControls) itemClasses.push(styles.aboutUsSortableItem);
@@ -350,7 +370,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     <div className={ itemClasses.join(" ") }>
                         <TooltipHost tooltipProps={ TooltipProps(tooltipText.join("\n")) } >
                             <a className={ styles.link } href={ value.url } target={ (value.target) ? "_blank" : "_self" }>
-                                <FontIcon iconName="Processing" className={ styles.linkIcon } />
+                                <Icon iconName="Processing" className={ styles.fabricUIIcon } />
                                 { value.text || value.url }
                             </a>
                         </TooltipHost>
@@ -372,7 +392,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                         allowDrag={ this.props.showEditControls }
                         onSortEnd={ this.props.onOrderChange }
                         className={ (this.props.showEditControls) ? styles.aboutUsSortableList : null }
-                        draggedItemClassName={ (this.props.showEditControls) ? styles.aboutUsSortableItemDragged : null } >{ children }</SortableList> }
+                        draggedItemClassName={ styles.aboutUsSortableItemDragged } >{ children }</SortableList> }
                     >
                     {
                         (this.props.values && this.props.values instanceof Array) ?
@@ -405,7 +425,8 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     itemIndex: this.props.itemIndex,
                     onEdit: this.props.onEdit,
                     onDelete: this.props.onDelete,
-                    extraButtons: (typeof this.props.extraButtons === "function") ? this.props.extraButtons(key, value) : this.props.extraButtons
+                    extraButtons: (typeof this.props.extraButtons === "function") ? 
+                        this.props.extraButtons(key, value) : this.props.extraButtons
                 };
 
             if (this.props.showEditControls) itemClasses.push(styles.aboutUsSortableItem);
@@ -424,9 +445,10 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                                 { (value.title) ? <div className={ styles.title }>{ value.title }</div> : null}
                                 <div className={ styles.name }>{ value.text }</div>
                             </div>
-                            { (value.email) ? <a className={ styles.link } href={`mailto:${value.email}`} target="_blank">{value.email}</a> : null }
-                            { (value.email2) ? <span className={ styles.link } >SIPR: {value.email2}</span> : null }
-                            { (value.email3) ? <span className={ styles.link } >JWIC: {value.email3}</span> : null }
+                            { (value.email) ? 
+                                <a className={ styles.link } href={`mailto:${value.email}`} target="_blank">{value.email}</a> : null }
+                            { (value.email2) ? <div className={ styles.redContactsText }>SIPR: {value.email2}</div> : null }
+                            { (value.email3) ? <div >JWIC: {value.email3}</div> : null }
                             { (value.phone1 || value.phone2 || value.dsn) ?
                                 <div className={ styles.phoneContainer }>
                                     { (value.phone1 ) ? <span className={ styles.phone }>&#9742;: {value.phone1}</span> : null }
@@ -456,7 +478,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                         allowDrag={ this.props.showEditControls }
                         onSortEnd={ this.props.onOrderChange }
                         className={ (this.props.showEditControls) ? styles.aboutUsSortableList : null }
-                        draggedItemClassName={ (this.props.showEditControls) ? styles.aboutUsSortableItemDragged : null } >{ children }</SortableList> }
+                        draggedItemClassName={ styles.aboutUsSortableItemDragged } >{ children }</SortableList> }
                     >
                     {
                         (this.props.values && this.props.values instanceof Array) ?
@@ -517,13 +539,17 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                     wrapper={ children => <SortableItem key={key}>{ children }</SortableItem>}>
 
                     <div className={ itemClasses.join(" ") }>
-                            <div className={ styles.keyword }>{value}{
+                            <div className={ styles.keyword }>
+                                <Icon iconName="TagSolid" className={ styles.fabricUIIcon } />
+                                {value}
+                                {
                                 (this.props.showEditControls) ? 
                                     <TooltipHost content="Remove">
                                         { React.createElement(IconButton, deleteButtonProps) }
                                     </TooltipHost>
                                     : null
-                            }</div>
+                                }
+                            </div>
                     </div>
                 </Wrapper>
             );
@@ -539,7 +565,7 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
                         allowDrag={ this.props.showEditControls }
                         onSortEnd={ this.props.onOrderChange }
                         className={ (this.props.showEditControls) ? styles.aboutUsSortableList : null }
-                        draggedItemClassName={ (this.props.showEditControls) ? styles.aboutUsSortableItemDragged : null } >{ children }</SortableList> }
+                        draggedItemClassName={ styles.aboutUsSortableItemDragged } >{ children }</SortableList> }
                     >
                     {
                         (this.props.values && this.props.values instanceof Array) ?
@@ -556,6 +582,434 @@ import { WebPartContext } from '@microsoft/sp-webpart-base';
         }
     }
     //#endregion
+//#endregion
+
+//#region BREADCRUMB NAVIGATION
+    //#region INTERFACE
+    interface INavDisplayItemProps {
+        properties: IAboutUsAppWebPartProps;
+        item: IDataStructureItem;
+        text: string;
+        displayType: string;
+        onNavClick: (id: number)=>void;
+        className?: string;
+        displayAll?: boolean;
+    }
+
+    interface INavDisplaySubmenuProps {
+        properties: IAboutUsAppWebPartProps;
+        items: IDataStructureItem[];
+        className?: string;
+        displayType: string;
+        onNavClick: (id: number)=>void;
+        ignoreItems?: (number | string)[];
+    }
+
+    export interface INavDisplayProps {
+        properties: IAboutUsAppWebPartProps;
+        structure: Record<any, IDataStructureItem>;
+        itemID?: number | string;
+        onNavClick: (id: number)=>void;
+    }
+    //#endregion
+
+    //#region NAV DISPLAY
+    class navDisplayItem extends React.Component<INavDisplayItemProps> {
+        public render(): React.ReactElement<INavDisplayItemProps> {
+            const css = [ styles.navItem ],
+                isLink = (this.props.item.DisplayType.indexOf(this.props.displayType) > -1),
+                url = new URL(location.href || ""),
+                urlParams = url.searchParams,
+                _onClick = (evt) => {
+                    evt.preventDefault();
+                    this.props.onNavClick(this.props.item.ID);
+                    return false;
+                };
+
+            if (this.props.className) css.push(this.props.className);
+            urlParams.set(this.props.properties.urlParam, this.props.item.ID.toString());
+
+            return (this.props.displayAll || isLink) ?
+            <li className={ css.join(" ") }>
+                <Wrapper
+                    condition={ isLink }
+                    wrapper={ children => <a href={ url.toString() } className={ styles.navText } onClick={ _onClick }>{children}</a> }
+                    else={ children => <div className={ styles.navText }>{children}</div> }
+                >
+                    { this.props.text }
+                </Wrapper>
+                { this.props.children }
+            </li>
+            : null ;
+        }
+    }
+
+    class navDisplaySubmenu extends React.Component<INavDisplaySubmenuProps> {
+        public render(): React.ReactElement<INavDisplaySubmenuProps> {
+            const items = this.generateChildrenList();
+
+            return (items.length > 0) ?
+                <div className={ styles.subNavContainer }>
+                    <ul className={ styles.subNavList }>
+                        {
+                            items.map(item => React.createElement(navDisplayItem, {
+                                properties: this.props.properties,
+                                item: item,
+                                text: `${item.Title} - ${item.Name}`,
+                                displayType: this.props.displayType,
+                                onNavClick: this.props.onNavClick,
+                                className: styles.subNavItem })
+                            )
+                        }
+                    </ul>
+                </div> 
+            : null ;
+        }
+
+        private generateChildrenList(): IDataStructureItem[] {
+            const allowedTypes = [this.props.displayType, "_orgType"],
+                ignoreList = (this.props.ignoreItems) ? this.props.ignoreItems : [],
+                _items = [];
+
+            this.props.items.forEach(item => {
+                // does item contain any of the allowed types && not on the ignore list
+                if (sourceContainsAny(item.DisplayType, allowedTypes) && ignoreList.indexOf(item.ID) === -1) {
+                    _items.push(item);
+                }
+            });
+
+            return _items;
+        }
+
+        
+    }
+
+    export class navDisplay extends React.Component<INavDisplayProps> {
+        public render(): React.ReactElement<INavDisplayProps> {
+            const displayType = "About-Us Page",
+                topNavItems = this.generateTopNavItems(this.props.structure, this.props.itemID);
+
+            return (
+                <div className={ styles.navSection } >
+                    { (topNavItems.length > 0) ?
+                        <ul className={ styles.topNavList }>
+                            {
+                                topNavItems.map((item, i) => {
+                                    const nextItem = (i < topNavItems.length - 1) ? topNavItems[i + 1] : null;
+
+                                    return React.createElement(navDisplayItem, {
+                                        properties: this.props.properties,
+                                        item: item,
+                                        text: item.Title,
+                                        displayType: displayType,
+                                        className: styles.topNavItem,
+                                        displayAll: true,
+                                        onNavClick: this.props.onNavClick },
+
+                                        React.createElement(navDisplaySubmenu, {
+                                            properties: this.props.properties,
+                                            ignoreItems: (nextItem) ? [nextItem.ID] : null,
+                                            items: item.children,
+                                            displayType: displayType,
+                                            onNavClick: this.props.onNavClick,
+                                            className: styles.subNavItem }
+                                        )
+                                    );
+                                })
+                            }
+                        </ul>
+                    : null }
+                </div>
+            );
+        }
+
+        private generateTopNavItems(
+            structure: Record<(number | string),
+            IDataStructureItem>, itemID: number | string): IDataStructureItem[] {
+
+            const items = [];
+
+            // keep getting the parent item until null or "_root"
+            let item = structure[itemID];
+            if (item) items.push(item);
+            while (item) {
+                item = structure[item.ParentID];
+                if (item) items.unshift(item);
+            }
+
+            return items;
+        }
+    }
+    //#endregion
+//#endregion
+
+//#region CONTENT MANAGERS
+    export interface IContentManagersDisplayProps {
+        users: IUserInfo[];
+        ownerGroupID: number;
+        emailSubject: string;
+    }
+    interface IContentManagersDisplayState {
+        owners: ISiteUserInfo[];
+    }
+    
+    export class ContentManagersDisplay extends React.Component<IContentManagersDisplayProps, IContentManagersDisplayState> {
+        constructor(props) {
+            super(props);
+
+            this.state = {
+                owners: []
+            };
+        }
+
+        public render(): React.ReactElement<IContentManagersDisplayProps> {
+            const cmMailToLink = this.generateContentManagersMailToLink();
+
+            // if content managers mailto link === null; this means there are no users or owners
+            return (cmMailToLink) ? 
+                <>
+                    { (this.props.users && this.props.users.length > 0) ?
+                        <ul className={ styles.contentManagersList }>
+                            { this.props.users.map(user => <li>{this.mailTo(user)}</li>) }
+                        </ul> : null
+                    }
+                    <div className={ styles.contentManagersMessage }>
+                        Have questions, corrections or comments about this page, send a message to the <a href={cmMailToLink}>Content Managers</a>.
+                    </div>
+                </> : null;
+        }
+
+        public async componentDidMount() {
+            if (this.props.ownerGroupID) {
+                // get owners
+                const owners = await DataFactory.getSiteGroupMembers(this.props.ownerGroupID);
+
+                this.setState({"owners": owners});
+            }
+        }
+
+        private generateContentManagersMailToLink(): string {
+            const users = [],
+                owners = [];
+
+            let subject = encodeURIComponent(this.props.emailSubject || "About-Us"),
+                body = encodeURIComponent(location.href) || "",
+                mailTo = "";
+
+            // add user emails to list
+            if (this.props.users && this.props.users.length > 0) {
+                this.props.users.forEach(user => {
+                    if (user.EMail) users.push(user.EMail);
+                });
+            }
+
+            // add owner emails to list
+            if (this.state.owners && this.state.owners.length > 0) {
+                this.state.owners.forEach(owner => {
+                    if (owner.Email) owners.push(owner.Email);
+                });
+            }
+
+            // compile all parts of the mailto link
+            const _createLink = () => {
+                var to = (users.length > 0) ? users.join(";") : (owners.length > 0) ? owners.join(";") : null,
+                    params = [];
+
+                if (users.length > 0 && owners.length > 0) params.push("cc=" + owners.join(";"));
+                if (subject) params.push("subject=" + subject);
+                if (body) params.push("body=" + body);
+
+                return (to) ? "mailto:" + to + ((params.length > 0) ? "?" + params.join("&"): "") : "";
+            };
+
+            // reduce the mailto link parts smartly
+            const _reduceLink = () => {
+                
+                if (owners.length > 2) {
+                    // 1. reduce owner emails
+                    owners.pop();
+
+                } else if (users.length > 2) {
+                    // 2. reduce user emails
+                    users.pop();
+
+                } else if (body.length > 0) {
+                    // 3. remove body text
+                    body = "";
+
+                } else {
+                    // 4. remove subject text
+                    subject = "";
+                }
+
+                return _createLink();
+            };
+
+            // ensure mailto link is not longer than 1900 characters
+            mailTo = _createLink();
+            while (mailTo.length > 1900) {
+                mailTo = _reduceLink();
+            }
+
+            return mailTo;
+        }
+
+        private mailTo(user: IUserInfo): React.ReactElement {
+            return <Wrapper
+                    condition={ "EMail" in user && user.EMail.length > 0 }
+                    wrapper={ children => 
+                        <a href={ `mailtto:${user.EMail}?subject=${encodeURIComponent(this.props.emailSubject)}` } className={ styles.email }>
+                            {children}
+                        </a> }
+                    else={ children => <span className={ styles.email }>{children}</span>}
+                >
+                    <Icon iconName="Mail" className={ styles.fabricUIIcon } />
+                    {user.Title || user.EMail || user.Name || "Content Manager"}
+                </Wrapper>;
+        } 
+    }
+//#endregion
+
+//#region PAGE VALIDATION
+export interface IPageValidationDisplayProps {
+    properties: IAboutUsAppWebPartProps;
+    onValidate?: ()=>void;
+    showButton?: boolean;
+    validated: Date;
+    validatedBy: IUserInfo;
+}
+
+export class PageValidationDisplay extends React.Component<IPageValidationDisplayProps> {
+    private friendlyDateFormat = "M/D/YYYY h:mm A";
+
+    public render(): React.ReactElement<IPageValidationDisplayProps> {
+        const expirationDate = this.getExpirationDate(this.props.validated),
+            expired = this.expired(this.props.validated),
+            showWarning = this.showWarning(this.props.validated),
+            isValid = this.isValid(this.props.validated),
+            expiresIn = (!expired && expirationDate) ? expirationDate.diff(moment(), "days") : 0,
+            tooltipText = [],
+            css = [styles.validateButton],
+            btnProps: IButtonProps = {
+                text: "Update validation status",
+                iconProps: { iconName: "CompletedSolid" },
+                className: "",
+                onClick: (evt) => {this.props.onValidate(); return false;}
+            };
+
+        if (expirationDate) {
+            if (expired ) {
+                css.push(styles.validatedExpired);
+                tooltipText.push(`Expired! Content Manager(s) are required to validate page information every \
+                    ${this.props.properties.validateEvery.toString()} days.\
+                    \nPage validation expired on ${expirationDate.format(this.friendlyDateFormat)}.`);
+
+            } else if (showWarning) {
+                css.push(styles.validatedWarning);
+                tooltipText.push(`Page validation expires soon. Content Manager(s) \
+                    should validate page information before the expiration date.\
+                    \nExpires on ${expirationDate.format(this.friendlyDateFormat)} \
+                    (${expiresIn} day${(expiresIn === 1) ? "" : "s"}).`);
+                
+            } else if (isValid) {
+                css.push(styles.validatedGood);
+                tooltipText.push(`Page validated. 
+                    ${ (this.props.properties.validateEvery !== 0) ? `Content Manager(s) are required to validate page information every \
+                        ${this.props.properties.validateEvery.toString()} days.`: `` } \
+                    \nExpires on ${expirationDate.format(this.friendlyDateFormat)} \
+                    (${expiresIn} day${(expiresIn === 1) ? "" : "s"}).`);
+                
+            }
+        }
+        btnProps.className = css.join(" ");
+
+        return (this.props.properties.validateEvery > 0) ?
+            <>
+                { (moment.isDate(this.props.validated)) ? <div className={ styles.validatedText }>
+                    {
+                        `Information on this page was validated \
+                        by ${this.props.validatedBy.Title || this.props.validatedBy.EMail || this.props.validatedBy.Name || "unknown"} \
+                        on ${moment(this.props.validated).format(this.friendlyDateFormat)}.`
+                    }
+                </div> : null}
+                { (this.props.showButton) ? 
+                    <div>
+                        <TooltipHost tooltipProps={ TooltipProps(tooltipText.join("\n")) }>
+                            { React.createElement(ActionButton, btnProps) }
+                        </TooltipHost>
+                    </div>
+                 : null }
+            </>
+        : null;
+    }
+
+    /** Gets the expiration date based on the given date + the web part property date
+     * @param date Starting date object or string.
+     * @returns New Date (moment) object that represents the expiration date.
+     */
+    private getExpirationDate(date: Date | moment.Moment | string): moment.Moment {
+        if (moment.isDate(date) && this.props.properties.validateEvery > 0) {
+            return moment(date).add(this.props.properties.validateEvery + 1, "days");
+        }
+
+        return null;
+    }
+
+    /** Check to see if today is after the expiration date
+     * @param date Starting date object.
+     * @returns True of today is after the expiration date.
+     */
+    private expired(date: Date): boolean {
+        // never expires if validate every 0 days
+        if (this.props.properties.validateEvery === 0) return false;
+
+        if (moment.isDate(date)) {
+            const today = moment(),
+                expirationDate = this.getExpirationDate(date);
+
+            return today.isAfter(expirationDate);
+        }
+
+        return true;
+    }
+
+    /** Check to see if today is 'near' the expiration date
+     * @param date Starting date object.
+     * @returns True of today is 'near' the expiration date.
+     */
+    private showWarning(date: Date): boolean {
+        // never expires if validate every 0 days
+        if (this.props.properties.validateEvery === 0) return false;
+
+        if (moment.isDate(date)) {
+            const today = moment(),
+                warningPeriod = Math.ceil(this.props.properties.validateEvery * .1),    // 10%
+                warningDate = moment(date).add((this.props.properties.validateEvery + 1) - warningPeriod, "days");
+
+            return today.isSameOrAfter(warningDate);
+        }
+
+        return true;
+    }
+
+    /** Check to see if today is before the expiration date
+     * @param date Starting date object.
+     * @returns True of today is before the expiration date.
+     */
+    private isValid(date: Date): boolean {
+        // never expires if validate every 0 days: neither good or bad
+        if (this.props.properties.validateEvery === 0) return false;
+
+        if (moment.isDate(date)) {
+            const today = moment(),
+                expirationDate = this.getExpirationDate(date);
+
+            return today.isSameOrBefore(expirationDate);
+        }
+
+        return false;
+    }
+}
 //#endregion
 
 //#region GLOBAL DISPLAY HELPERS
@@ -577,6 +1031,7 @@ export function rearrangeArray(arr: any[], oldIndex: number, newIndex: number) {
 export function TooltipProps(tooltip: string): ITooltipProps {
     const text = trim(tooltip);
     return {
+        directionalHint: DirectionalHint.topLeftEdge,
         onRenderContent: ()=>{
             return (text.length > 0) ? <div style={{whiteSpace: "pre-line"}}>{text}</div> : null;
         }
@@ -584,6 +1039,148 @@ export function TooltipProps(tooltip: string): ITooltipProps {
 }
 //#endregion
 
+//#region SEARCHBOX
+export interface ISearchBoxProps {
+    properties: IAboutUsAppWebPartProps;
+    list: DataFactory;
+    structure: TStructure;
+    onResultsClick: (id: number) => void;
+
+    className?: string;
+    placeholder?: string;
+    icon?: string;
+}
+export interface ISearchBoxState {
+    queryText: string;
+    showResults: boolean;
+    results: ISearchResult[];
+    searching: boolean;
+    searchboxFocus: boolean;
+    resultsFocus: boolean;
+}
+
+export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState> {
+    constructor(props) {
+    	super(props);
+
+    	// set initial state
+    	this.state = {
+            searching: false,
+            queryText: "",
+            showResults: false,
+            searchboxFocus: false,
+            resultsFocus: false,
+            results: []
+        };
+    }
+
+    public render(): React.ReactElement<ISearchBoxProps> {
+        const css = [styles.searchContainer],
+            buttonProps: IButtonProps = {
+                className: styles.button,
+                iconProps: { iconName: this.props.icon || "Search" },
+                disabled: this.state.searching,
+                onClick: this.searchButton_onClick.bind(this)
+            };
+
+        if (this.props.className) css.push(this.props.className);
+
+        return (
+            <div className={ css.join(" ") }
+                onBlur={ evt => this.setFocus("searchbox", false) }
+                onFocus={ evt =>this.setFocus("searchbox", true) }>
+                <div className={ styles.searchboxWrapper }>
+                    <input
+                        className={ styles.searchbox }
+                        value={ this.state.queryText }
+                        placeholder={ this.props.placeholder || "Search..." }
+                        onChange={ evt => this.searchQuery_onChange(evt.target.value) }
+                        onKeyPress={ evt => {
+                            if (evt.keyCode === 13 || evt.which === 13) this.searchButton_onClick();
+                            return false;
+                        } } />
+                    <TooltipHost content="Search About-Us content">
+                        { React.createElement(IconButton, buttonProps) }
+                    </TooltipHost>
+                </div>
+                <div className={ styles.searchResultsWrapper }
+                    style={{"display": (this.state.showResults) ? "" : "none"}}
+                    onMouseLeave={ evt => this.setFocus("results", false) }
+                    onMouseEnter={ evt =>this.setFocus("results", true) }>
+                        <ul className={ styles.searchResultsList }>
+                        {
+                            (this.state.results.length > 0)
+                            ? this.state.results.map(result => this.SearchResultElement(result))
+                            : <li className={ styles.searchResult }>No search results for this query</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        );
+    }
+
+    private SearchResultElement(result: ISearchResult): React.ReactElement {
+        const resultPath = new URL(result.Path),
+            id = parseInt(resultPath.searchParams.get("ID")),
+            item = (!isNaN(id)) ? this.props.structure[id] || null : null,
+            url = new URL(window.location.href),
+            _onClick = (evt) => {
+                evt.preventDefault();
+                this.props.onResultsClick(id);
+                this.setState({ "showResults": false });
+                return false;
+            };
+
+        url.searchParams.set(this.props.properties.urlParam, id.toString());
+
+        return (item) ? <li className={ styles.searchResult }>
+                <a href={ url.toString() } onClick={ _onClick }>{ `${item.Title} - ${item.Name}` }</a>
+            </li> : null;
+    }
+
+    private searchQuery_onChange(text) {
+        this.setState({
+            "queryText": text,
+            "showResults": false
+        });
+    }
+
+    private async searchButton_onClick(): Promise<void> {
+        // clear search results
+        this.setState({
+            "showResults": false,
+            "results": []
+        });
+
+        // get search term
+        const term = trim(this.state.queryText);
+        if (!term || term.length < 2) return;
+
+
+        // get search results
+        const response = await this.props.list.search(this.state.queryText),
+            results = response.PrimarySearchResults;
+
+        this.setState({
+            "results": results,
+            "showResults": true
+        });
+    }
+
+    private setFocus(section: "searchbox" | "results", hasFocus: boolean) {
+        const searchboxFocus = (section === "searchbox") ? hasFocus : this.state.searchboxFocus,
+            resultsFocus = (section === "results") ? hasFocus : this.state.resultsFocus,
+            hideResults = (searchboxFocus === false && resultsFocus === false),
+            state = {...this.state, [section + "Focus"]: hasFocus};
+
+        // hide search results if searchbox or search results looses focus
+        if (hideResults) state.showResults = false;
+        
+        // update focus state
+        this.setState(state);
+    }
+}
+//#endregion
 
 //#region PAGE DISPLAY
 export default interface IPageDisplayProps {
@@ -591,106 +1188,118 @@ export default interface IPageDisplayProps {
     properties: IAboutUsAppWebPartProps;
     list: DataFactory;
     itemId: number;
-    history: History;
+    changeDisplay: (displayType: string)=>void;
+    changeItem: (id: number, title: string, url: string) => void;
     pageLayout?: "default";
 }
 
+export interface IUserInfo {
+    "odata.type"?: string;
+    "odata.id"?: string;
+    "ID": number;
+    "Title"?: string;
+    "Name"?: string;
+    "EMail"?: string;
+}
+
+export type TStructure = Record<(number | string), IDataStructureItem>;
+
 export default class PageDisplay extends React.Component<IPageDisplayProps, Record<string, any>> {
     //#region PROPERTIES
-    private structure: Record<(number | string), IDataStructureItem> = {};
+    private structure: TStructure = {};
     //#endregion
 
     //#region RENDER
     constructor(props) {
         super(props);
 
-        this.state = {};
+        this.state = {
+            itemId: null,
+            permissions: {
+                canAdd: false,
+                canEdit: false,
+                canDelete: false
+            }
+        };
     }
 
     public render(): React.ReactElement<IPageDisplayProps> {
+        // get item data only if different. usually from history state changes (history.pushState or window.onpopstate)
+        if (this.state.itemId && this.state.itemId !== this.props.itemId) this.getItem(this.props.itemId);
+
         return (
             <div className={ styles.defaultPageLayout }>
                 { this.displayAppMessaage(this.props.properties.appMessage, this.props.properties.appMessageIsAlert) }
 
                 <div className={ styles.headerSection }>
                     { this.displayLogo(this.state.Logo) }
-                    <div className={ styles.menuSection }></div>
-                    <div className={ styles.toolbarSection }></div>
-                    <div className={ styles.searchSection }></div>
-                    <div className={ styles.header }>
-                        <h2 className={ styles.headerText }>{ this.state.Title || "" } - { this.state.Name || "" }</h2>
-                        <div className={ styles.subtitle }>{ this.state.Description || "" }</div>
-                    </div>
+                    { this.displayMenu() }
+                    { this.displayNavigation() }
+                    { this.displaySearch() }
+                    { this.displayHeaderTitle(this.state.Title, this.state.Name, this.state.Description) }
                 </div>
-
 
                 <div className={ styles.bodySection }>
                     { this.displayMission(this.state.Mission) }
                     { this.displayTasks(this.state.Tasks) }
                     { this.displayContent(this.state.Content) }
                     { this.displaySubContent(this.state.SubContent) }
-                    { this.displayLinks(this.state.Links) }
-                    { this.displayContacts(this.state.Contacts) }
+                    { this.displayKeywords(this.state.Keywords, "", true) }
+                    { this.displayLinks(this.state.Links, "", true) }
+                    { this.displayContacts(this.state.Contacts, "", true) }
                 </div>
 
                 <div className={ styles.sideSection }>
                     { this.displayBios(this.state.Bios) }
-                    { this.displaySOP(this.state.SOP) }
+                    { this.displaySOP(this.state.SOP, "", true) }
                     { this.displayOfficeInfoBlock(
                         this.state.Location,
                         this.state.Address,
                         this.state.Phone,
                         this.state.DSN,
                         this.state.FAX,
-                        this.state.SignatureBlock
+                        this.state.SignatureBlock,
+                        true
                     ) }
                 </div>
 
                 <div className={ styles.footerSection }>
-                    <div className={ styles.contentManagersContainer }></div>
-                    <div className={ styles.validatedContainer }></div>
+                    { this.displayContentManagers(this.state.ContentManagers, "", true) }
+                    { this.displayPageValidation(this.state.Validated, this.state.ValidatedBy) }
                 </div>
             </div>
-
         );
     }
 
     public async componentDidMount() {
         // get item data & nav items
-        const getItem = this.props.list.getItemById_expandFields(this.props.itemId),
-            getStructure = this.props.list.getDataStructure(this.props.properties),
-            responses = await Promise.all([getItem, getStructure]),
-            item = responses[0];
+        const [ structure, permissions] = await Promise.all([
+                this.props.list.getDataStructure(this.props.properties),
+                this.props.list.getUserPermissions()
+            ]);
 
-        this.structure = responses[1];
-        if (item.ID in this.structure) this.structure[item.ID].data = item;
+        this.structure = structure;
 
-        LOG("item", item);
         LOG("structure:", this.structure);
+        LOG("permissions:", permissions);
 
-        // state
-        const state = {};
-        for (const key in item) {
-            if (key.indexOf("odata") === 0) continue;
-            if (Object.prototype.hasOwnProperty.call(item, key)) {
-                const data = item[key];
-                state[key] = data;
-            }
-        }
+        // init state
+        const initState = {
+            itemId: this.props.itemId,
+            permissions: permissions
+        };
 
-        this.setState(assign(this.state, state));
+        // initialize state with item data
+        const item = await this.getItem(this.props.itemId, initState);
+
+        LOG("item:", item);
     }
-    //#endregion
-
-    //#region LAYOUTS
-    // private DefaultPageLayout(): React.ReactElement {
-        
-    // }
     //#endregion
 
     //#region COMPONENTS
     private displayAppMessaage(message: string, isAlert: boolean = false, className?: string): React.ReactElement {
         const css = [styles.messageSection];
+
         if (isAlert) css.push(styles.isAlert);
         if (className) css.push(className);
 
@@ -700,102 +1309,261 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
     }
 
     private displayLogo(logo: {"Url": string, "Description": string}, className?: string): React.ReactElement {
-        const css = [styles.logoSection];
+        const css = [styles.logoSection],
+            imgUrl = (logo) ? trim(logo.Url) : this.props.properties.logo ;
+
         if (className) css.push(className);
 
-        return (logo) ? <div className={ css.join(" ") }>
-            <img className={ styles.pageLogo } src={ trim(logo.Url) } alt="About-Us page logo" />
+        return (imgUrl) ? <div className={ css.join(" ") }>
+            <img className={ styles.pageLogo } src={ imgUrl } alt="About-Us page logo" />
+        </div> : null ;
+    }
+
+    private displayMenu(className?: string): React.ReactElement {
+        const css = [styles.menuSection],
+            key = this.props.ctx.webPartTag,
+            commandBarStyles: ICommandBarStyles = {
+                root: { "fontSize": "12px", "height": "auto" },
+                primarySet: { "fontSize": "12px" },
+                secondarySet: { "fontSize": "12px" }
+            },
+            items: ICommandBarItemProps[] = [],
+            farItems: ICommandBarItemProps[] = [];
+
+        // 'New' button
+        if (this.state.permissions.canAdd) farItems.push({
+            key: `btnNew${key}`,
+            text: "Add Item",
+            iconProps: { iconName: "Add", styles: {root: {"fontSize": "12px"}} },
+            className: styles.menuItem,
+            onClick: evt => { this.props.changeDisplay("new"); }
+        });
+
+        // 'Edit' button
+        if (this.state.permissions.canEdit) farItems.push({
+            key: `btnEdit${key}`,
+            text: "Edit Item",
+            iconProps: { iconName: "Edit", styles: {root: {"fontSize": "12px"}} },
+            className: styles.menuItem,
+            onClick: evt => { this.props.changeDisplay("edit"); }
+        });
+
+        return (items.length > 0 || farItems.length > 0)
+            ? <CommandBar items={ items } farItems={ farItems } className={ css.join(" ") } styles={ commandBarStyles } />
+            : null;
+    }
+    
+    private displayNavigation(): React.ReactElement {
+        const props = {
+            properties: this.props.properties,
+            structure: this.structure,
+            itemID: this.props.itemId,
+            onNavClick: this.navigateTo.bind(this)
+        };
+
+        return (Object.keys(this.structure).length > 0)
+            ? <div className={ styles.navSection }>
+                { React.createElement(navDisplay, props) }
+            </div>
+            : null;
+    }
+
+    private displaySearch(): React.ReactElement {
+        const props: ISearchBoxProps = {
+            properties: this.props.properties,
+            list: this.props.list,
+            structure: this.structure,
+            onResultsClick: this.navigateTo.bind(this)
+        };
+
+        return (Object.keys(this.structure).length > 0) ? <div className={ styles.searchSection }>
+            { React.createElement(SearchBox, props) }
         </div> : null;
     }
 
-    private displayMission(text: string, className?: string): React.ReactElement {
-        const css = [styles.missionContainer];
+    private displayHeaderTitle(title: string, name: string, description: string, className?: string): React.ReactElement {
+        const css = [styles.header],
+            headerTitle = [];
+
+        if (title) headerTitle.push(title);
+        if (name) headerTitle.push(name);
+
+        if (className) css.push(className);
+
+        return (headerTitle.length > 0)
+            ? <div className={ css.join(" ") }>
+                <h2 className={ styles.headerText }>{ headerTitle.join(" - ") }</h2>
+                { (description) ? <div className={ styles.subtitle }>{ description || "" }</div> : null}
+            </div>
+            : null;
+    }
+
+    private displayMission(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Mission"),
+            css = [styles.missionContainer];
+
+        if (!showBanner) css.push(styles.showLabel);
         if (className) css.push(className);
 
         text = trim(text);
 
-        return (text) ? <div className={ css.join(" ") }>{ text }</div> : null;
+        return (text)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") } data-label={ field.Title + ":" }>{ text }</div>
+            </>
+            : null;
     }
 
-    private displayTasks(text: string, className?: string): React.ReactElement {
-        const css = [styles.tasksContainer];
+    private displayTasks(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Tasks"),
+            css = [styles.tasksContainer];
+
+        if (!showBanner) css.push(styles.showLabel);
         if (className) css.push(className);
 
         const values = (text) ? JSON.parse(trim(text)) : null;
 
-        return (values) ? <div className={ css.join(" ") }>{ React.createElement(TasksDisplay, { values: values }) }</div> : null;
+        return (values && values.length > 0 && Object.keys(values[0]).length > 0)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") }  data-label={ field.Title + ":" }>
+                    { React.createElement(TasksDisplay, { values: values, properties: this.props.properties }) }
+                </div>
+            </>
+            : null;
     }
 
-    private displayContent(text: string, className?: string): React.ReactElement {
-        const css = [styles.contentContainer];
+    private displayContent(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Content"),
+            css = [styles.contentContainer];
+
         if (className) css.push(className);
 
         text = trim(text);
 
-        return (text) ? <div className={ css.join(" ") } dangerouslySetInnerHTML={ {__html: text} }/> : null;
+        return (text)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") } dangerouslySetInnerHTML={ {__html: text} }/>
+            </>
+            : null;
     }
 
-    private displaySubContent(text: string, className?: string): React.ReactElement {
-        const css = [styles.subContentContainer];
+    private displaySubContent(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("SubContent"),
+            css = [styles.subContentContainer];
+
         if (className) css.push(className);
 
         text = trim(text);
 
-        return (text) ? <div className={ css.join(" ") } dangerouslySetInnerHTML={ {__html: text} }/> : null;
+        return (text)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") } dangerouslySetInnerHTML={ {__html: text} }/>
+            </>
+            : null;
     }
 
-    private displayLinks(text: string, className?: string): React.ReactElement {
-        const css = [styles.linksContainer];
+    private displayKeywords(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Keywords"),
+            css = [styles.keywordsContainer];
+
         if (className) css.push(className);
 
         const values = (text) ? JSON.parse(trim(text)) : null;
 
-        return (values) ? 
-            <>
-                <div className={ styles.sectionBanner }>Links</div>
+        return (values && values.length > 0 && (typeof values[0] === "string"))
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") }>{ React.createElement(KeywordsDisplay, { values: values }) }</div> 
+            </>
+            : null;
+    }
+
+    private displayLinks(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Links"),
+            css = [styles.linksContainer];
+
+        if (className) css.push(className);
+
+        const values = (text) ? JSON.parse(trim(text)) : null;
+
+        return (values && values.length > 0 && Object.keys(values[0]).length > 0)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
                 <div className={ css.join(" ") }>{ React.createElement(LinksDisplay, { values: values }) }</div> 
             </>
             : null;
     }
 
-    private displayContacts(text: string, className?: string): React.ReactElement {
-        const css = [styles.contactsContainer];
+    private displayContacts(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Contacts"),
+            css = [styles.contactsContainer];
+
         if (className) css.push(className);
 
         const values = (text) ? JSON.parse(trim(text)) : null;
 
-        return (values) ? 
-            <>
-                <div className={ styles.sectionBanner }>Contacts</div>
+        return (values && values.length > 0 && Object.keys(values[0]).length > 0)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
                 <div className={ css.join(" ") }>{ React.createElement(ContactsDisplay, { values: values }) }</div> 
             </>
             : null;
     }
 
-    private displayBios(text: string, className?: string): React.ReactElement {
-        const css = [styles.biosContainer];
+    private displayBios(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("Bios"),
+            css = [styles.biosContainer];
+
         if (className) css.push(className);
 
         const values = (text) ? JSON.parse(trim(text)) : null;
 
-        return (values) ? <div className={ css.join(" ") }>{ React.createElement(BiosDisplay, { values: values }) }</div> : null;
-    }
-
-    private displaySOP(text: string, className?: string): React.ReactElement {
-        const css = [styles.sopsContainer];
-        if (className) css.push(className);
-
-        const values = (text) ? JSON.parse(trim(text)) : null;
-
-        return (values) ? 
-            <>
-                <div className={ styles.sectionBanner }>SOP</div>
-                <div className={ css.join(" ") }>{ React.createElement(SOPDisplay, { values: values }) }</div> 
+        return (values && values.length > 0 && Object.keys(values[0]).length > 0)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") }>{ React.createElement(BiosDisplay, { values: values }) }</div>
             </>
             : null;
     }
 
-    private displayOfficeInfoBlock(location: string = "", address: string = "", phone: string = "", dsn: string = "", fax: string = "", sig: string = "") {
+    private displaySOP(text: string, className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("SOP"),
+            css = [styles.sopsContainer];
+
+        if (className) css.push(className);
+
+        const values = (text) ? JSON.parse(trim(text)) : null;
+
+        return (values && values.length > 0 && Object.keys(values[0]).length > 0)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={ css.join(" ") }>{ React.createElement(SOPDisplay, { values: values}) }</div> 
+            </>
+            : null;
+    }
+
+    private displayOfficeInfoText(text: string, className?: string, label?: string): React.ReactElement {
+        return (
+            <div className={ styles.officeInfo }>
+                { (label) ? <div className={ styles.officeLabel }>{ label }</div> : null }
+                <div className={ className }>{ text }</div>
+            </div>
+        );
+    }
+
+    private displayOfficeInfoBlock(
+        location: string = "",
+        address: string = "",
+        phone: string = "",
+        dsn: string = "",
+        fax: string = "",
+        sig: string = "",
+        showBanner?: boolean): React.ReactElement {
+
         const officeInfo: Record<("label" | "text" | "css"), string>[] = [];
 
         // generate the office information array. this determines the order
@@ -817,24 +1585,138 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
         sig = trim(sig || "");
         if (sig) officeInfo.push({ label: "Signature Block(s):", text: sig, css: styles.signatureBlockContainer });
         
-        return (
+        return ( (officeInfo.length > 0) ?
             <>
-                <div className={ styles.sectionBanner }>Office Information</div>
+                { (showBanner) ? <div className={ styles.sectionBanner }>Office Information</div> : null }
                 <div className={ styles.officeInformationContainer }>
-                    { officeInfo.map(info => {
-                        return (<div className={ styles.officeInfo }>
-                            <div className={ styles.officeLabel }>{ info.label }</div>
-                            <div className={ info.css }>{ info.text }</div>
-                        </div>);
-                    }) }
+                    { officeInfo.map(info => this.displayOfficeInfoText(info.text, info.css, info.label)) }
                 </div>
-            </>
+            </> : null
         );
+    }
+
+    private displayContentManagers(users: IUserInfo[], className?: string, showBanner?: boolean): React.ReactElement {
+        const field = this.props.list.getExistingField_InternalName("ContentManagers"),
+            css = [styles.contentManagersContainer],
+            props = {
+                users: users || [],
+                ownerGroupID: this.props.properties.ownerGroup,
+                emailSubject: `About-Us Question: ${this.state.Title}`
+            };
+
+        if (className) css.push(className);
+
+        // render if: item has a title (valid item data) AND there is either users or an owner
+        return (this.state.Title && ((users && users.length > 0) || this.props.properties.ownerGroup))
+            ? <>
+                    { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                    <div className={css.join(" ") }>{ React.createElement(ContentManagersDisplay, props) }</div>
+                </>
+            : 
+                <div>
+                    { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                    <div className={css.join(" ") }>
+                        <Icon iconName="IncidentTriangle" className={ styles.fabricUIIcon }/>
+                        <span>
+                            There are no Content Managers, Owners, or Admins for this page. 
+                            Please contact the site's owner or admins to cont
+                        </span>
+                    </div>
+                </div>
+            ;
+    }
+
+    private displayPageValidation(validated: string, validatedBy: IUserInfo, className?: string, showBanner?: boolean): React.ReactElement {
+        const css = [styles.validatedContainer],
+            props: IPageValidationDisplayProps = {
+                properties: this.props.properties,
+                validated: (validated) ? new Date(validated) : null,
+                validatedBy: validatedBy,
+                showButton: this.state.permissions.canEdit,
+                onValidate: this.validate_onClick.bind(this)
+            };
+
+        if (className) css.push(className);
+
+        return (moment.isDate(validated) || props.showButton)
+            ? <>
+                { (showBanner) ? <div className={ styles.sectionBanner }>Validate Page Information</div> : null }
+                <div className={css.join(" ") }>{ React.createElement(PageValidationDisplay, props) }</div>
+            </>
+            : null ;
     }
     //#endregion
 
     //#region HELPERS
+    /** Get item data. Re-establishes the state object to remove previous item data.
+     * @param id ID of item to fetch
+     * @param initState Optional. Initial starting state.
+     * @returns Item data object
+     */
+    private async getItem(id: number, initState?: Record<string, any>): Promise<any> {
+        const item = await this.props.list.getItemById_expandFields(id);
 
+        if (item.ID in this.structure) this.structure[item.ID].data = item;
+
+        // create new state without all the item data.
+        // need to copy all non-item data values.
+        if (!initState) initState = {
+            itemId: id, // update item id value
+            permissions: this.state.permissions // copy from original state
+        };
+
+        for (const key in item) {
+            if (key.indexOf("odata") === 0) continue;
+            if (Object.prototype.hasOwnProperty.call(item, key)) {
+                const data = item[key];
+                initState[key] = data;
+            }
+        }
+
+        this.setState(initState);
+
+        return item;
+    }
+
+    /** Navigate to a different item
+     * @param id Item ID to navigate to.
+     */
+    private navigateTo(id: number) {
+        const item = this.structure[id] || null,
+            url = new URL(location.href);
+
+        if (item) {
+            url.searchParams.set(this.props.properties.urlParam, id.toString());
+            this.props.changeItem(id, item.Title, url.toString());
+        }
+    }
+
+    /** Validate Page Info button onClick handler */
+    private validate_onClick() {
+        const today = new Date();
+
+        // get current user
+        this.props.list.getCurrentUser().then(user => {
+            // update list item
+            this.props.list.api.items.getById(this.props.itemId).update({
+                "Validated": today.toISOString(),
+                "ValidatedById": user.Id
+            }).then(() => {
+                this.setState({
+                    "Validated": today.toISOString(),
+                    "ValidatedById": user.Id,
+                    "ValidatedBy": {
+                        "odata.type": user["odata.type"],
+                        "odata.id": user["odata.id"],
+                        "ID": user.Id,
+                        "Title": user.Title,
+                        "Name": user.LoginName,
+                        "EMail": user.Email
+                    }
+                });
+            });
+        });
+    }
     //#endregion
 }
 //#endregion

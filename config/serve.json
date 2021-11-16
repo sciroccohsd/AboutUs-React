@@ -2,7 +2,7 @@
   "$schema": "https://developer.microsoft.com/json-schemas/core-build/serve.schema.json",
   "port": 4321,
   "https": true,
-  "initialPage": "https://localhost:4321/workbench?form=new",
+  "initialPage": "https://localhost:4321/workbench?id=1",
   "api": {
     "port": 5432,
     "entryPath": "node_modules/@microsoft/sp-webpart-workbench/lib/api/"
