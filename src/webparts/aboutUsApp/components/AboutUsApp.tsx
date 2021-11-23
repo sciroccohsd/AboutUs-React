@@ -8,7 +8,7 @@ import { Form } from '@pnp/sp/forms';
 import DataFactory from './DataFactory';
 import * as FormControls from './FormControls';
 import AboutUsForm, { IAboutUsFormProps } from "./AboutUsForm";
-import { IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
+import { DEBUG, DEBUG_NOTRACE, IAboutUsAppWebPartProps, LOG } from '../AboutUsAppWebPart';
 import AboutUsDisplay from './AboutUsDisplay';
 
 //#region INTERFACES, TYPES & ENUMS
@@ -36,7 +36,7 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         super(props);
 
         const url = new URL(window.location.href);
-        let form = (url.searchParams.get("form") || "").toLowerCase(),
+        let form = this.getAboutUsForm(),
             itemId = this.getAboutUsID();
 
         // make sure 'display' param value is valid:
@@ -44,18 +44,20 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
 
         // initialize state
         this.state = {
-            "displayType": form || this.props.displayType || "page",
+            "displayType": form || this.props.displayType,
             "itemId": itemId
         };
 
-        // handle back button
+        // set initial history state
         history.replaceState(this.state, document.title, window.location.href);
+
+        // handle browser back button to reduce page refreshes
         window.onpopstate = this.window_onpopstate.bind(this);
     }
 
     public render(): React.ReactElement<IAboutUsAppProps> {
-        // DEBUG
-        LOG("this.props.lists:", this.props.list);
+        DEBUG_NOTRACE("this.state:", this.state);
+        DEBUG_NOTRACE("this.props.lists:", this.props.list);
 
         return (
             <div className={styles.aboutUsApp}>
@@ -124,54 +126,70 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         return (id > 0) ? id : null;
     }
 
+    private getAboutUsForm(): string {
+        const url = new URL(window.location.href),
+            displayType = url.searchParams.get(`${this.props.properties.urlParam}form`);
+
+        return (displayType) ? displayType.toLowerCase() : "";
+    }
+//#endregion
+
+
+//#region DISPLAY CHANGES
     private changeDisplayType(displayType: string) {
         // don't change view if the display type didn't change
         if (this.state.displayType === displayType) return;
 
+        const url = new URL(location.href),
+            formParam = `${this.props.properties.urlParam}form`;
+
+        // update search param if display "new" or "edit" forms
+        // don't push state
+        if (displayType === "new" || displayType === "edit") {
+            url.searchParams.set(formParam, displayType);
+            //return location.assign(url.toString());
+        } else {
+            url.searchParams.delete(formParam);
+        }
+
         this.setState({...this.state, "displayType": displayType}, () => {
-            history.pushState(this.state, document.title);
+            history.pushState(this.state, document.title, url.toString());
         });
     }
 
-    private changeItemID(id: number, title: string, url: string) {
+    private changeItemID(id: number, title: string = "", url?: string, replaceState?: boolean) {
         // don't change navigation if the ID didn't change
         if (this.state.itemId === id) return;
 
+        if (!url) {
+            const href = new URL(location.href);
+            href.searchParams.set(this.props.properties.urlParam, id.toString());
+            url = href.toString();
+        }
+
         this.setState({...this.state, "itemId": id}, () => {
-            history.pushState(this.state, document.title || title, url);
+            if (replaceState === true) {
+                history.replaceState(this.state, document.title || title, url);
+            } else {
+                history.pushState(this.state, document.title || title, url);
+            }
         });
     }
 
     private window_onpopstate(evt) {
-        this.setState({
-            "displayType": (evt.state) ? evt.state.displayType : this.props.displayType,
-            "itemId": (evt.state) ? evt.state.itemId : this.getAboutUsID()
-        });
-    }
-//#endregion
-}
+        let state: Partial<IAboutUsAppState> = evt.state;
 
+        if (!state) state = {};
+        if (!state.displayType) state.displayType = this.getAboutUsForm() || this.props.displayType;
+        if (!state.itemId) state.itemId = this.getAboutUsID();
 
-//#region PRIVATE LOG
-/** Prints out debug messages. Decorated console.info() or console.error() method.
- * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
- */
- function LOG(...args: any[]) {
-    // is an error message, if first argument is a string and contains "error" string.
-    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-    args = ["(About-Us AboutUsApp.tsx)"].concat(args);
-
-    if (window && window.console) {
-        if (isError && console.error) {
-            console.error.apply(null, args);
-
-        } else if (console.info) {
-            console.info.apply(null, args);
-
+        if (this.state.displayType !== state.displayType || this.state.itemId !== state.itemId) {
+            this.setState(state as IAboutUsAppState);
         }
     }
-}
 //#endregion
+}
+
 
 //#region GLOBAL HELPERS (REACT TYPES)
 export interface IWrapperProps {

@@ -24,9 +24,16 @@ import { IBasePermissions, IRoleAssignmentInfo, IRoleDefinitionInfo, PermissionK
 import "@pnp/sp/site-users/web";
 import { ISiteUserInfo } from "@pnp/sp/site-users/types";
 import "@pnp/sp/search";
-import { ISearchQuery, Search, SearchResults } from "@pnp/sp/search";
+import { ISearchQuery, ISearchResult, Search, SearchResults } from "@pnp/sp/search";
 import { IDropdownOption, IIconProps, IStyle } from "office-ui-fabric-react";
-import { IAboutUsAppWebPartProps, sleep } from "../AboutUsAppWebPart";
+import { DEBUG_NOTRACE, escapeProperly, IAboutUsAppWebPartProps, LOG, sleep } from "../AboutUsAppWebPart";
+import { IFilePickerProps } from "@pnp/spfx-controls-react";
+import { Web } from "@pnp/sp/webs";
+import "@pnp/sp/files";
+import "@pnp/sp/folders";
+import { Folder, IFolder, IFolderInfo } from "@pnp/sp/folders/types";
+import { IFileAddResult } from "@pnp/sp/files";
+import { IDocumentLibraryInformation } from "@pnp/sp/sites";
 
 //#region INTERFACES, TYPES & ENUMS
 export interface IDataFactoryFieldInfo extends IFieldInfo {
@@ -89,8 +96,9 @@ export interface IAboutUsMicroFormField {
     required?: boolean;
     disabled?: boolean;
     placeholder?: string;
-    styles?: {[key: string]: string};
+    styles?: Record<string, string>;
     className?: string;
+    description?: string;
 
     options?: IDropdownOption[];
     target?: "_blank" | "_self" | "_parent" | "_top";
@@ -98,7 +106,7 @@ export interface IAboutUsMicroFormField {
     mask?: string;
     readOnly?: boolean;
     multiline?: boolean;
-    description?: string;
+    filePickerProps?: Partial<IFilePickerProps>;
 }
 export interface IAboutUsListTemplate {
     "list": {
@@ -109,8 +117,8 @@ export interface IAboutUsListTemplate {
     };
     "fields": Partial<IListInfo>[] | any;
     "views": IAboutUsListViewTemplate[];
-    "roleDefs": { [name: string]: IAboutUsListRoleDef };
-    "fieldMicroForms": { [name: string]: IAboutUsMicroFormField }[];
+    "roleDefs": Record<string, IAboutUsListRoleDef>;
+    "fieldMicroForms": Record<string, IAboutUsMicroFormField>[];
 }
 
 export interface IListValidationResults {
@@ -134,6 +142,7 @@ export interface IDataStructureItem {
     ParentID?: number | string;
     children: IDataStructureItem[];
     data?: Record<string, any>;
+    flags?: Record<string, any>;
 }
 
 export interface IUserPermissions {
@@ -222,7 +231,7 @@ export default class DataFactory {
     // }
 
     // role definition
-    private static roleDefinitions: {[key: string]: IRoleDefinitionInfo} = {};
+    private static roleDefinitions: Record<string, IRoleDefinitionInfo> = {};
 
     
 //#endregion
@@ -352,8 +361,8 @@ export default class DataFactory {
      * @returns status.exists = if field already exists; status.update = if any field properties needs to be updated.  
      */
     private static compareTemplateToListField(
-        field: { [prop: string]: any },
-        existingFields: { [prop: string]: any }[]): IFieldStatusResults {
+        field: Record<string, any>,
+        existingFields: Record<string, any>[]): IFieldStatusResults {
 
         // set default status: does not exist & no update
         let status = { "exists": false, "update": null };
@@ -426,8 +435,6 @@ export default class DataFactory {
                             doesn't exist!`, field);
                         return null;
                     }
-
-                    LOG("create lookup field > lookuup list:", list);
 
                     // update LookupList
                     field.LookupList = list.Id;
@@ -614,7 +621,7 @@ export default class DataFactory {
      */
     private async ensureViewFields(viewId: string, fieldNames: string[]): Promise<void> {
         const fields = this.api.views.getById(viewId).fields,
-            viewFields = await <Promise<{[key:string]: any}>>fields.get(),
+            viewFields = await <Promise<Record<string, any>>>fields.get(),
             existingFieldNames = viewFields.Items;
 
         // if existing field names and order match template, there's nothing to update.
@@ -933,37 +940,113 @@ export default class DataFactory {
 //#endregion
 
 //#region SEARCH
-    public async search(queryText): Promise<SearchResults> {
-        //const search = Search(`/lists/${this.title}`);
-        return await sp.search(<ISearchQuery>{
-            // Querytext: `${queryText}+AND+ListID:${this.properties.Id}`,
-            Querytext: queryText,
-            RowLimit: 10,
-            EnablePhonetic: true,
-            SourceId: this.properties.Id,
-            SelectProperties: ["Title", "Path", "Name"]
+    /** Search this list for matching items.
+     * @param queryText Text term to search for.
+     * @param rowLimit Optional. Maximum number of results returned. Increasing this limit will increase the chances of 
+     * returning items but decreases response times. Default: 100.
+     * @returns Array of trimmed results. Trims results to list items.
+     */
+    public async search(queryText, rowLimit?: number): Promise<ISearchResult[]> {
+        const path = location.protocol + "//" + location.host + this.properties.RootFolder.ServerRelativeUrl,
+            results: ISearchResult[] = [],
+            addedList = [],
+            response = await sp.searchWithCaching(<ISearchQuery>{
+                Querytext: `${escapeProperly(queryText)} path:${path}`,
+                // Querytext: queryText,
+                RowLimit: rowLimit || 100,
+                EnablePhonetic: true,
+                SourceId: this.properties.Id,
+                SelectProperties: ["Title", "Path", "ListId"],
+                EnableInterleaving: true
+            });
+
+        // trim results for this list only
+        response.PrimarySearchResults.forEach(result => {
+            const id = parseInt(result.Path.split("ID=").pop(), 10);
+            if (!isNaN(id) && addedList.indexOf(id) === -1) {
+                addedList.push(id);  // keep track of which items were added. avoid adding duplicate results
+                results.push(result);
+            }
         });
+
+        LOG(`Search results for ${queryText}:`, response);
+
+        return results;
+    }
+//#endregion
+
+//#region UPLOAD
+    public static async uploadFile(libraryRelativeUrl: string, file: File, folderName?: string): Promise<IItem> {
+        let item: IItem = null;
+        const folderRelativeUrl = [libraryRelativeUrl];
+
+
+        try{
+            // ensure folder exists
+            if (folderName) {
+                const folderExists = await DataFactory.ensureFolder(libraryRelativeUrl, folderName);
+                if (folderExists) folderRelativeUrl.push(folderName);
+            }
+
+            // upload the file
+            const fileAddResult = await sp.web.getFolderByServerRelativeUrl(folderRelativeUrl.join("/")).files.add(file.name, file, true);
+            
+            // get file/item details
+            item = await fileAddResult.file.get();
+
+        } catch (er) {
+            LOG("ERROR! Unable to upload file:", file, er);
+        }
+
+        return item;
+    }
+
+    public static async ensureFolder(libraryRelativeUrl: string, folderName: string): Promise<boolean> {
+        // get folder
+        let folderInfo: IFolderInfo;
+        
+        try {
+            folderInfo = await sp.web.getFolderByServerRelativeUrl([libraryRelativeUrl, folderName].join("/")).get();
+        } catch (er) {/* silently */}
+
+        if (!folderInfo || folderInfo.Exists === false) {
+            try {
+                // try to create the folder
+                await sp.web.getFolderByServerRelativeUrl(libraryRelativeUrl).addSubFolderUsingPath(folderName);
+
+            } catch (er) {
+                LOG("ERROR! Unable to create subfolder:", libraryRelativeUrl, folderName, er);
+                return false;
+            }
+        }
+
+        return true;
     }
 //#endregion
 
 //#region HELPERS
-    public async getDataStructure(
-        webpartProperties: IAboutUsAppWebPartProps,
-        select: string[] = ["ID", "Title", "DisplayType", "Name", "OrgType", "OrderBy", "Parent/ID"], 
-        expand: string[] = ["Parent"],
-        orderBy: [string, boolean] = ["OrderBy", true]
-    ): Promise<Record<(number | string), IDataStructureItem>> {
+    /** Creates the structure object from all list items.
+     * @param webpartProperties Web Part Property object. Used to create the "Root" object
+     * @returns Structure object
+     */
+    public async getDataStructure(homeTitle: string): Promise<Record<(number | string), IDataStructureItem>> {
 
         // get all items from the list
-        const items = await this.getAllItems(select, expand, orderBy),
+        const select = ["ID", "Title", "DisplayType", "Name", "OrgType", "OrderBy", "Parent/ID"], 
+            expand = ["Parent"],
+            orderBy: [string, boolean] = ["OrderBy", true],
+            items = await this.getAllItems(select, expand, orderBy),
             orgTypeField = find(this.fields, ["InternalName", "OrgType"]),
             orgTypeOptions = (orgTypeField) ? orgTypeField.Choices : [],
             structure: Record<(number | string), IDataStructureItem> = {};
 
+        // if no items returned (empty list?), return empty structure
+        if (items.length === 0) return structure;
+
         // add root to structure
         structure["_root"] = {
             "ID": 0,
-            "Title": webpartProperties.homeTitle,
+            "Title": homeTitle || "Home",
             "DisplayType": ["_root"],
             "OrderBy": -1000,
             "children": []
@@ -993,7 +1076,8 @@ export default class DataFactory {
                 "OrderBy": item.OrderBy || 999999999,
                 "ParentID": (item.Parent) ? item.Parent.ID : item.OrgType || null,
                 "children": [],
-                "data": null
+                "data": null,
+                "flags": {}
             };
         });
 
@@ -1165,6 +1249,16 @@ export default class DataFactory {
     }
 
     /**
+     * REST request to retrieve all SP lists from site.
+     * @param absoluteWebUrl Full URL to web
+     * @returns Array of list objects.
+     */
+     public static async getAllLibraries(absoluteWebUrl: string): Promise<IDocumentLibraryInformation[]> {
+
+        return await sp.site.getDocumentLibraries(absoluteWebUrl);
+    }
+
+    /**
      * Check to see if list name is valid.
      * @param name List name to check.
      * @param existingListNames Array of existing list names. Use DataFactory.GetAllLists() to retrieve all list titles.
@@ -1198,25 +1292,3 @@ export default class DataFactory {
     }
 //#endregion
 }
-
-
-//#region PRIVATE LOG
-/** Prints out debug messages. Decorated console.info() or console.error() method.
- * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
- */
- function LOG(...args: any[]) {
-    // is an error message, if first argument is a string and contains "error" string.
-    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-    args = ["(About-Us DataFactory.ts)"].concat(args);
-
-    if (window && window.console) {
-        if (isError && console.error) {
-            console.error.apply(null, args);
-
-        } else if (console.info) {
-            console.info.apply(null, args);
-
-        }
-    }
-}
-//#endregion

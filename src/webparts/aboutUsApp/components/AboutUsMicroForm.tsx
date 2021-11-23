@@ -12,9 +12,16 @@ import { Dropdown,
     Link,
     Stack,
     IStackTokens,
-    IStackStyles} from 'office-ui-fabric-react';
+    IStackStyles,
+    ILinkProps,
+    ITextField,
+    ITextFieldProps} from 'office-ui-fabric-react';
 import CustomDialog from './CustomDialog';
 import DataFactory, { IAboutUsMicroFormField } from './DataFactory';
+import { FilePicker, IFilePickerProps, IFilePickerResult } from '@pnp/spfx-controls-react';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
+import { arrayListFormat, DEBUG_NOTRACE, IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
+import { IItem } from '@pnp/sp/items';
 
 //#region INTERFACES & ENUMS
 export interface IAboutUsMicroFormValues {
@@ -22,14 +29,18 @@ export interface IAboutUsMicroFormValues {
 }
 
 export interface IMicroFormProps {
+    ctx: WebPartContext;   // required for file picker
+    properties: IAboutUsAppWebPartProps;
     fields: IAboutUsMicroFormField[];
     formValues: IAboutUsMicroFormValues;
     stateUpdated: (state: IMicroFormState)=>{};
     styles?: IStackStyles;
+    resourceFolder?: string;    // for file picker. upload folder name inside external repo library.
 }
 
 interface IMicroFormState extends IAboutUsMicroFormValues {
-    errorMessage?: {[key: string]: string};
+    errorMessage?: Record<string, string>;
+    defaultFolderAbsolutePath?: string[];
 }
 //#endregion
 
@@ -38,7 +49,14 @@ export class MicroForm extends React.Component<IMicroFormProps, IMicroFormState>
     constructor(props) {
         super(props);
 
-        const state = { errorMessage: {} };
+        const state = {
+            errorMessage: {},
+            defaultFolderAbsolutePath: [this.props.ctx.pageContext.web.absoluteUrl]
+        };
+
+        if (this.props.properties.externalRepo) {
+            state.defaultFolderAbsolutePath.push(this.props.properties.externalRepo.split("/").pop());
+        }
 
         // need to create the state object with field keys and errorMessage keys.
         for (let i = 0; i < this.props.fields.length; i++) {
@@ -70,6 +88,17 @@ export class MicroForm extends React.Component<IMicroFormProps, IMicroFormState>
         );
     }
 
+    public async componentDidMount() {
+        // ensure folder if resource folder was passed
+        if (this.props.properties.externalRepo && this.props.resourceFolder) {
+            const exists = await DataFactory.ensureFolder(this.props.properties.externalRepo, this.props.resourceFolder);
+            if (exists) {
+                const defaultFolderAbsolutePath = [...this.state.defaultFolderAbsolutePath];
+                defaultFolderAbsolutePath.push(this.props.resourceFolder);
+                this.setState({"defaultFolderAbsolutePath": defaultFolderAbsolutePath});
+            }
+        }
+    }
 //#endregion
 
 //#region CONTROLS
@@ -130,8 +159,7 @@ export class MicroForm extends React.Component<IMicroFormProps, IMicroFormState>
                     target={field.target || "_blank"}
                     disabled={field.disabled || false}
                     styles={field.styles || {}}
-                    className={field.className || ""}
-                    >{field.label || ""}</Link>;
+                    className={field.className || ""} />;
 
             case "label":
                 return <Label
@@ -143,24 +171,131 @@ export class MicroForm extends React.Component<IMicroFormProps, IMicroFormState>
                     >{field.label || ""}</Label>;
                             
             default:    // assumes it's an textbox type
-                return <TextField
-                    id={fieldId}
-                    type={field.type}
-                    label={field.label || null}
-                    ariaLabel={field.label + " textbox"}
-                    placeholder={field.placeholder || field.label || ""}
-                    description={field.description || null}
-                    errorMessage={ this.state.errorMessage[field.internalName] }
-                    multiline={field.multiline || false}
-                    defaultValue={this.state[field.internalName]}
-                    onChange={ (evt, newValue) => { this.onChange_control(field, newValue); } }
-                    required={field.required || false}
-                    disabled={field.disabled || false}
-                    styles={field.styles || { root: {"min-width": "400px"} }}
-                    className={field.className || ""} />;
+                return this.TextFieldControl(fieldId, field);
 
         }
     }
+
+    private TextFieldControl(fieldId: string, field: IAboutUsMicroFormField): React.ReactElement {
+        const props: ITextFieldProps = {
+                id: fieldId,
+                type: field.type,
+                label: field.label || null,
+                ariaLabel: field.label + " textbox",
+                placeholder: field.placeholder || field.label || "",
+                description: field.description || null,
+                errorMessage:  this.state.errorMessage[field.internalName] ,
+                multiline: field.multiline || false,
+                value: this.state[field.internalName],
+                onChange:  (evt, newValue) => { this.onChange_control(field, newValue); },
+                required: field.required || false,
+                disabled: field.disabled || false,
+                styles: field.styles || { root: {"min-width": "400px"} },
+                className: field.className || ""
+            },
+            picker_onChange = (results: (IFilePickerResult | IFilePickerResult[])) => {
+                DEBUG_NOTRACE("MicroFormControl > TextFieldControl > FilePicker:", results);
+
+                const result = (results && results instanceof Array && results.length > 0) ? results[0] : results as IFilePickerResult;
+
+                const url = result.fileAbsoluteUrl;
+
+                this.onChange_control(field, url);
+            },
+            filePickerProps: IFilePickerProps = (field.filePickerProps)
+                ? assign({
+                    context: this.props.ctx,
+                    onSave: (items: IFilePickerResult[]) => { this.filePicker_onSave(items, field); },
+                    onChange: (items: IFilePickerResult[]) => { this.filePicker_onChange(items, field); },
+                    buttonLabel: "Select a file",
+                    buttonIcon: "FileImage",
+                    defaultFolderAbsolutePath: this.state.defaultFolderAbsolutePath.join("/")
+                }, field.filePickerProps) as IFilePickerProps
+                : null ;
+        
+        return (
+            <div>
+                { React.createElement(TextField, props) }
+                { filePickerProps ? React.createElement(FilePicker, filePickerProps) : null }
+            </div>
+            
+        );
+    }
+
+    //#region FILE PICKER
+    private updateFilePickerField(item: IFilePickerResult, field: IAboutUsMicroFormField) {
+        const url = item.fileAbsoluteUrl;
+
+        // if no url, item  may need to be uploaded.
+        if (!url) return;
+
+        this.onChange_control(field, url);
+    }
+
+    private async uploadItem(item: IFilePickerResult, field: IAboutUsMicroFormField): Promise<IItem> {
+        const file = await item.downloadFileContent();
+        let uploadedItem: IItem = null;
+
+        // invalid file type
+        if (field.filePickerProps.accepts && field.filePickerProps.accepts.length > 0) {
+            if (field.filePickerProps.accepts.indexOf(file.name.toLowerCase().split(".").pop()) === -1) {
+                // not accepted file type
+                await CustomDialog.alert(
+                    `Unable to upload file. Allowed types: ${arrayListFormat(field.filePickerProps.accepts, ", ", " or ")}`,
+                    "Invalid file type");
+
+                return uploadedItem;
+            }
+        }
+
+        // only upload files that are 5MBs or lower
+        if (file.size <= 5500000) {
+            uploadedItem = await DataFactory.uploadFile(this.props.properties.externalRepo, file, this.props.resourceFolder);
+                
+        } else {
+            // too large
+            await CustomDialog.alert("Unable to upload file. Image size must be less than 3 MBs.", "File too large");
+        }
+
+        return uploadedItem;
+    }
+
+    private filePicker_onChange(items: IFilePickerResult[], field: IAboutUsMicroFormField) {
+        // the URL field can only accept one item
+        const item = (items && items.length > 0) ? items[0] : null;
+        if (item) this.updateFilePickerField(item, field);
+    }
+
+    private async filePicker_onSave(items: IFilePickerResult[], field: IAboutUsMicroFormField) {
+        // external repo not set up
+        if (!this.props.properties.externalRepo) {
+            return await CustomDialog.alert("Administrators haven not configured the external repository.", "Unable to upload file");
+        }
+
+        // no file was selected
+        if (!items || items.length === 0) return;
+
+        // parse selected file
+        items.forEach( async (item) => {
+            // if item already has a URL, item is already uploaded.
+            if (item.fileAbsoluteUrl) return this.updateFilePickerField(item, field);
+
+            // upload this file
+            const uploadItem = await this.uploadItem(item, field);
+            if (uploadItem) {
+                item.fileAbsoluteUrl = new URL((uploadItem as Record<string, any>).ServerRelativeUrl, location.origin).href;
+                item.fileName = (uploadItem as Record<string, any>).Name;
+
+                this.updateFilePickerField(item, field);
+                
+            } else {
+                // something went wrong with the upload
+                await CustomDialog.alert("Unable to upload file. View console for more details.", "ERROR!");
+            }
+
+        });
+    }
+    //#endregion
 
     private onChange_control(field: IAboutUsMicroFormField, newValue: any) {
         if (field.internalName in this.state) {
@@ -232,22 +367,36 @@ export class MicroForm extends React.Component<IMicroFormProps, IMicroFormState>
 //#endregion
 }
 
+
 export default class AboutUsMicroForm extends CustomDialog {
 //#region PROPERTIES
-    private formValues_: IAboutUsMicroFormValues;
-    private formFields_: IAboutUsMicroFormField[];
-    private formStyles_: IStackStyles;
+    private ctx: WebPartContext;
+    private properties: IAboutUsAppWebPartProps;
+    private formValues: IAboutUsMicroFormValues;
+    private formStyles: IStackStyles;
+    private resourceFolder: string;
 //#endregion
 
 //#region CONSTRUCTOR
-    constructor(title: string, fields: IAboutUsMicroFormField[], defaultValue?: IAboutUsMicroFormValues, formStyles?: IStackStyles) {
+    constructor(
+            ctx: WebPartContext,
+            properties: IAboutUsAppWebPartProps,
+            title: string,
+            fields: IAboutUsMicroFormField[],
+            defaultValue?: IAboutUsMicroFormValues,
+            formStyles?: IStackStyles,
+            resourceFolder?: string
+        ) {
+
         super(title, true);
 
-        this.formFields_ = fields;
-        this.formValues_ = AboutUsMicroForm.initFormValues(fields, defaultValue);
-        this.formStyles_ = formStyles;
+        this.ctx = ctx;
+        this.properties = properties;
+        this.formValues = AboutUsMicroForm.initFormValues(fields, defaultValue);
+        this.formStyles = formStyles;
+        this.resourceFolder = resourceFolder;
 
-        this.generateForm(fields, this.formValues_);
+        this.generateForm(fields, this.formValues);
     }
 
     public async show(): Promise<any> {
@@ -258,11 +407,11 @@ export default class AboutUsMicroForm extends CustomDialog {
             okClicked = true;
             dialog.close();
             return false;
-        });
+        }, "OK");
 
         await super.show();
 
-        return (okClicked) ? this.formValues_ : null ;
+        return (okClicked) ? this.formValues : null ;
     }
 //#endregion
 
@@ -271,16 +420,19 @@ export default class AboutUsMicroForm extends CustomDialog {
         const root = this.body;
 
         ReactDOM.render(<MicroForm
+            ctx={this.ctx}
+            properties={this.properties}
             fields={fields}
             formValues={formValues}
             stateUpdated={this.microForm_stateUpdated.bind(this)}
-            styles={this.formStyles_} />, root);
+            styles={this.formStyles}
+            resourceFolder={this.resourceFolder} />, root);
     }
 
     private microForm_stateUpdated(state: IMicroFormState) {
         let formValues = assign({}, state);
         delete formValues.errorMessage;
-        this.formValues_ = formValues;
+        this.formValues = formValues;
     }
 //#endregion
 

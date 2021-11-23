@@ -354,7 +354,7 @@ export default class CustomDialog extends BaseDialog {
      * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
      * @returns SPAN element
      */
-    private CreateActionButton(label: string, opt: {[key:string]: any} = {}, isPrimaryButton: boolean = false): HTMLSpanElement {
+    private CreateActionButton(label: string, opt: Record<string, any> = {}, isPrimaryButton: boolean = false): HTMLSpanElement {
         // generate css class for the Button
         let css: string[] = ["ms-Button"];
 
@@ -394,7 +394,7 @@ export default class CustomDialog extends BaseDialog {
      * @param opt HTML attributes for BUTTON element. Common attributes to add: 'tabOrder' & 'onclick'.
      * @returns SPAN element
      */
-    private CreateSubmitButton(onSubmit: (evt)=>any = null, label: string, opt: {[key:string]: any} = {}, isPrimaryButton: boolean = true): HTMLSpanElement {
+    private CreateSubmitButton(onSubmit: (evt)=>any = null, label: string, opt: Record<string, any> = {}, isPrimaryButton: boolean = true): HTMLSpanElement {
         if (onSubmit && typeof onSubmit === "function") this._onSubmit = onSubmit;
         
         // generate css class for the Button

@@ -56,13 +56,16 @@
         "listName": "",
         "ppListName_dropdown": "",
         "homeTitle": "Home",
-        "logo": "",
+        "logo": null,
         "appMessage": "",
         "appMessageIsAlert": false,
-        "startingID": null,
+        "startingID": 0,
         "showTaskAuth": false,
         "validateEvery": 365,
+        "externalRepo": "",
+        "pageTemplate": "default",
         "orgchart_key": {},
+        "broadcastDays": 30,
         "fields": {
           "OrgType": {
             "required": true,
@@ -91,12 +94,15 @@
           "Tasks": {
             "required": false,
             "controlled": true
+          },
+          "DisplayType": {
+            "required": false,
+            "controlled": true
           }
         },
         "ownerGroup": null,
         "managerGroup": null,
-        "readerGroup": null,
-        "broadcastDays": 30
+        "readerGroup": null
       }
     }
   ],
@@ -189,6 +195,40 @@
         "type": "component",
         "id": "c07208f0-ea3b-4c1a-9965-ac1b825211a6",
         "version": "1.12.1"
+      },
+      "PropertyControlStrings": {
+        "type": "localizedPath",
+        "paths": {
+          "bg-BG": "PropertyControlStrings_bg-bg.js",
+          "ca-ES": "PropertyControlStrings_ca-es.js",
+          "da-DK": "PropertyControlStrings_da-dk.js",
+          "de-DE": "PropertyControlStrings_de-de.js",
+          "el-GR": "PropertyControlStrings_el-gr.js",
+          "en-US": "PropertyControlStrings_en-us.js",
+          "es-ES": "PropertyControlStrings_es-es.js",
+          "et-EE": "PropertyControlStrings_et-ee.js",
+          "fi-FI": "PropertyControlStrings_fi-fi.js",
+          "fr-FR": "PropertyControlStrings_fr-fr.js",
+          "it-IT": "PropertyControlStrings_it-it.js",
+          "ja-JP": "PropertyControlStrings_ja-jp.js",
+          "lt-LT": "PropertyControlStrings_lt-lt.js",
+          "lv-LV": "PropertyControlStrings_lv-lv.js",
+          "nb-NO": "PropertyControlStrings_nb-no.js",
+          "nl-NL": "PropertyControlStrings_nl-nl.js",
+          "no": "PropertyControlStrings_no.js",
+          "pl-PL": "PropertyControlStrings_pl-pl.js",
+          "pt-PT": "PropertyControlStrings_pt-pt.js",
+          "ro-RO": "PropertyControlStrings_ro-ro.js",
+          "ru-RU": "PropertyControlStrings_ru-ru.js",
+          "sk-SK": "PropertyControlStrings_sk-sk.js",
+          "sr-Latn-RS": "PropertyControlStrings_sr-latn-rs.js",
+          "sv-SE": "PropertyControlStrings_sv-se.js",
+          "tr-TR": "PropertyControlStrings_tr-tr.js",
+          "vi-VN": "PropertyControlStrings_vi-vn.js",
+          "zh-CN": "PropertyControlStrings_zh-cn.js",
+          "zh-TW": "PropertyControlStrings_zh-tw.js"
+        },
+        "defaultPath": "PropertyControlStrings_en-us.js"
       }
     }
   }

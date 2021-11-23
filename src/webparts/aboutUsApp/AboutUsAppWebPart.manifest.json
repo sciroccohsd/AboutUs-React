@@ -40,14 +40,19 @@
       "ppListName_dropdown": "",
 
       "homeTitle": "Home",
-      "logo": "",
+      "logo": null,
       "appMessage": "",
       "appMessageIsAlert": false,
-      "startingID": null,
+      "startingID": 0,
       "showTaskAuth": false,
       "validateEvery": 365,
+      "externalRepo": "",
+
+      "pageTemplate": "default",
 
       "orgchart_key": {},
+
+      "broadcastDays": 30,
 
       "fields": {
         "OrgType": {
@@ -77,14 +82,16 @@
         "Tasks": {
           "required": false,
           "controlled": true
+        },
+        "DisplayType": {
+          "required": false,
+          "controlled": true
         }
       },
 
       "ownerGroup": null,
       "managerGroup": null,
-      "readerGroup": null,
-
-      "broadcastDays": 30
+      "readerGroup": null
     }
   }]
 }

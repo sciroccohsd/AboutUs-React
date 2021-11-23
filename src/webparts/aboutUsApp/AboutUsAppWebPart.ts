@@ -2,8 +2,10 @@ import * as React from 'react';
 import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
+    IPropertyPaneConditionalGroup,
     IPropertyPaneConfiguration,
     IPropertyPaneDropdownOption,
+    IPropertyPaneGroup,
     IPropertyPanePage,
     PropertyPaneButton,
     PropertyPaneButtonType,
@@ -17,6 +19,8 @@ import {
     PropertyPaneTextField,
     PropertyPaneToggle
 } from '@microsoft/sp-property-pane';
+import { PropertyFieldNumber } from '@pnp/spfx-property-controls/lib/PropertyFieldNumber';
+import { PropertyFieldFilePicker, IPropertyFieldFilePickerProps, IFilePickerResult } from "@pnp/spfx-property-controls/lib/PropertyFieldFilePicker";
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 
 import * as strings from 'AboutUsAppWebPartStrings';
@@ -25,8 +29,7 @@ import AboutUsApp, { IAboutUsAppProps } from './components/AboutUsApp';
 import { SPComponentLoader } from "@microsoft/sp-loader";
 import DataFactory, { IListValidationResults, TAboutUsRoleDef } from './components/DataFactory';
 import CustomDialog from './components/CustomDialog';
-import { trim, escape, find } from 'lodash';
-
+import { trim, escape, find, trimEnd } from 'lodash';
 
 //#region INTERFACES, TYPES & ENUMS
 export interface IAboutUsAppFieldOption {
@@ -41,14 +44,16 @@ export interface IAboutUsAppWebPartProps {
     listName: string;
     ppListName_dropdown: string | number;
     homeTitle: string;
-    logo: string;
+    logo: IFilePickerResult;
     startingID: number;
     showTaskAuth: boolean;
     validateEvery: number;
+    externalRepo: string;
     appMessage: string;
     appMessageIsAlert: boolean;
-    orgchart_key: { [color: string]: string };
-    fields: { [fieldName: string]: IAboutUsAppFieldOption };
+    pageTemplate: string;
+    orgchart_key: Record<string, string>;
+    fields: Record<string, IAboutUsAppFieldOption>;
     ownerGroup: number;
     managerGroup: number;
     readerGroup: number;
@@ -69,12 +74,10 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         "propertyChanged": false,   // flag when any property pane field changes. onClose, updates render
         "data": {
             "optListNames": [],
+            "optLibraryNames": [],
             "optSiteGroups": [],
             "optOrgChartColors": []
-        },
-        "logoErrorMessage": "",
-        "startingIDErrorMessage": "",
-        "broadcastDaysErrorMessage": ""
+        }
     };
 
     // Processing... modal message properties.
@@ -175,8 +178,14 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         if (this.propertyPane_.isReady === false) {
             this.propertyPane_.showLoading = true;
             
-            // get data
-            Promise.all([this.populateListNameOptions(), this.populateSiteGroupOptions()]).then(responses => {
+            // get all data
+            Promise.all([
+                this.populateListNameOptions(),
+                this.populateLibraryNameOptions(),
+                this.populateSiteGroupOptions()
+            ]).then(responses => {
+
+                // refresh property pane
                 _this.propertyPane_.showLoading = false;
                 _this.propertyPane_.isReady = true;
                 _this.context.propertyPane.refresh();
@@ -184,20 +193,22 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
         } else {    // got data, propertypane is ready
 
-            // General page. settings that affect multiple views
-            if (this.list_.exists) pages.push(this.propertyPanePage_General());
 
             // other pages will only display after a list has been selected
             if (this.list_.exists) {
+                // General page. settings that affect multiple views
+                pages.push(this.propertyPanePage_General());
+
                 // other pages are based on which display type is selected
                 switch (this.properties.displayType) {
                     case "page":
+                        pages[0].groups = pages[0].groups.concat(this.propertyPaneGroups_Page());
                         pages.push(this.propertyPanePage_Permissions());
                         pages.push(this.propertyPanePage_Fields());
                         break;
                 
                     case "orgchart":
-                        pages.push(this.propertyPanePage_OrgChart()); 
+                        pages[0].groups = pages[0].groups.concat(this.propertyPaneGroups_OrgChart()); 
                         break;
                 
                     case "accordian":
@@ -213,7 +224,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                         break;
                                 
                     case "broadcast":
-                        pages.push(this.propertyPanePage_Broadcast());
+                        pages[0].groups = pages[0].groups.concat(this.propertyPaneGroups_Broadcast());
                         break;
                 
                     default:
@@ -222,7 +233,6 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             }
 
             pages.push(this.propertyPanePage_List());
-
         }
 
         return {
@@ -230,7 +240,97 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             pages: pages
         };
     }
+    
+    /** SPFx PropertyPane onChange event handler. Triggers anytime a PropertyPane form element is changed.
+     * @param propertyPath PropertyPane's target name. Use this property to determine which element triggered the onChange.
+     * @param oldValue Previous value
+     * @param newValue New value
+     */
+     public async onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any) {
+        this.propertyPane_.propertyChanged = true;
 
+        // do something based on which property (propertyPath) changed
+        switch (propertyPath) {
+            case "displayType": // display type dropdown changed
+                this.updateRenderProperty("displayType", newValue);
+                this.context.propertyPane.refresh();
+                break;
+
+            case "ppListName_dropdown":  // select a list dropdown changed
+                
+                if (newValue === "") return;
+
+                // show warning. we need to ensure the 'About-Us' list properties and fields are set/available
+                CustomDialog.confirm(
+                    'Check and update the list to ensure it has the required list fields and properties.\
+                    \nClick "Continue" to proceed?',
+                    `"${newValue}" list: Update List Properties`,
+                    {
+                        "yes": "Continue",
+                        "no": "Cancel"
+                    }).then( response => {
+
+                        // 'continue'?
+                        if (response === true) {
+                            const modalMsg = CustomDialog.modalMsg.apply(null, this.modalMsg_processing);
+                            this.list_.ensureList(newValue).then( () => {
+                                this.updateRenderProperty("listName", newValue);
+                                this.properties.ppListName_dropdown = newValue;
+                                this.propertyPane_.showPickListMenu = false;
+                                this.context.propertyPane.refresh();
+                                modalMsg.close();
+
+                            }).catch( er => {
+                                modalMsg.close();
+                                LOG(`ERROR! Unable to check or update '${ newValue }' list with About-Us properties & fields.`, er);
+                                CustomDialog.alert("Something went wrong! See the console for details.", "ERROR").then( () => {
+                                    this.properties.ppListName_dropdown = "";
+                                    this.propertyPane_.showPickListMenu = true;
+                                    this.context.propertyPane.refresh();
+                                });
+
+                            });
+
+                        } else {
+                            // cancelled
+                            this.properties.ppListName_dropdown = "";
+                            this.propertyPane_.showPickListMenu = true;
+                            this.context.propertyPane.refresh();
+
+                        }
+                    });
+
+                break;
+        
+            case "ownerGroup": // list permissions updated
+                this.properties.ownerGroup = newValue;
+                this.resetListPermissions();
+                break;
+
+            case "managerGroup": // list permissions updated
+                this.properties.managerGroup = newValue;
+                this.resetListPermissions();
+                break;
+
+            case "readerGroup": // list permissions updated
+                this.properties.readerGroup = newValue;
+                this.resetListPermissions();
+                break;
+
+            default:
+                // LOG("Uncaught PropertyPane change handler:", propertyPath, oldValue, newValue);
+        }
+    }
+
+    /** SPFx onClose event handler. Refresh render if any property pane field changed. */
+    protected async onPropertyPaneConfigurationComplete(): Promise<void> {
+        if (this.propertyPane_.propertyChanged) {
+            this.propertyPane_.propertyChanged = false;
+            await this.updateRenderProperty();
+        }
+    }
+
+    // PAGES & GROUPS
     /** PropertyPane General - Settings that affect multiple views
      * @returns PropertyPane page and fields.
      */
@@ -241,10 +341,6 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             },
             group_General = {
                 groupName: "General",
-                groupFields: []
-            },
-            group_Message = {
-                groupName: "Web Part Message",
                 groupFields: []
             };
 
@@ -258,27 +354,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
         // Home name
         group_General.groupFields.push(
-            PropertyPaneLabel("lblHomeName", {
-                text: "'Home' is displayed as the starting point for the breadcrumb naviagation. \
-                    Changing this text has no other effect."
-            })
-        );
-        group_General.groupFields.push(
             PropertyPaneTextField("homeTitle", {
-                label: "Edit 'Home' text: (Default: Home)"
-            })
-        );
-
-        // Default logo
-        group_General.groupFields.push(
-            PropertyPaneLabel("lblLogo", {
-                text: "Default About-Us page logo. Image size: 100px x 100px; Transparent background."
-            })
-        );
-        group_General.groupFields.push(
-            PropertyPaneTextField("logo", {
-                label: "(Optional) About-Us Page Logo: Enter the URL to the image.",
-                errorMessage: this.propertyPane_.logoErrorMessage
+                label: "Edit root breadcrumb text: (Default: Home)"
             })
         );
 
@@ -291,21 +368,68 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             })
         );
         group_General.groupFields.push(
-            PropertyPaneTextField("startingID", {
-                label: "(Optional) About-Us Starting Page ID:",
-                errorMessage: this.propertyPane_.startingIDErrorMessage
+            PropertyFieldNumber("startingID", {
+                key: "startingID",
+                label: "ID for the default starting item",
+                description: "Numbers only. If '0' (zero), the web part will display the first availble item by default.",
+                value: this.properties.startingID
+            })
+        );
+
+        return {
+            header: {
+                description: this.properties.description
+            },
+            groups: [group, group_General]
+        };
+    }
+
+    /** PropertyPane Groups
+     * @returns PropertyPane groups array.
+     */
+     private propertyPaneGroups_Page(): (IPropertyPaneGroup | IPropertyPaneConditionalGroup)[] {
+        const group_logo = {
+                groupName: "Default Logo",
+                groupFields: []
+            },
+            group = {
+                groupName: "About-Us Page Settings",
+                groupFields: []
+            },
+            group_Message = {
+                groupName: "Page Banner Settings",
+                groupFields: []
+            };
+
+        // Default logo
+        group_logo.groupFields.push(
+            PropertyFieldFilePicker("logo", {
+                properties: this.properties,
+                key: "logo",
+                context: this.context,
+                onPropertyChange: this.onPropertyPaneFieldChanged.bind(this),
+                onSave: (e: IFilePickerResult) => { this.properties.logo = e; },
+                label: "Default logo: Max resolution = 100px x 100px. Allowed: JPG, JPEG, or PNG",
+                buttonLabel: "Select an image",
+                filePickerResult: this.properties.logo,
+                accepts: ["jpg", "jpeg", "png", "svg", "ico"],
+                hideWebSearchTab: true,
+                hideStockImages: true,
+                hideOrganisationalAssetTab: true,
+                hideOneDriveTab: true,
+                hideLocalUploadTab: true
             })
         );
 
         // Display Tasking Authority
-        group_General.groupFields.push(
+        group.groupFields.push(
             PropertyPaneToggle("showTaskAuth", {
                 label: "Display Tasking Authority"
             })
         );
 
         // Validate Information Every...
-        group_General.groupFields.push(
+        group.groupFields.push(
             PropertyPaneDropdown("validateEvery", {
                 label: "About-Us information is valid for",
                 options: [
@@ -316,6 +440,22 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                     {key: 365, text: "1 year"},
                     {key: 730, text: "2 years"}
                 ]
+            })
+        );
+
+        // bio/images/logo repo location
+        group.groupFields.push(
+            PropertyPaneLabel("lblExternalRepo", {
+                text: "An external repository (Document Library) is useful for content managers to upload bios and images \
+                    for each of the different offices (branches, sections, divisions, directorates, orgs...). \
+                    The minimum permissions should allow all visitors to view the files and \
+                    allow content managers to upload/add, edit, & delete files as needed."
+            })
+        );
+        group.groupFields.push(
+            PropertyPaneDropdown("externalRepo", {
+                label: 'Select external repository (Document Library w/ proper permission) for bios, bio images and logos:',
+                options: this.propertyPane_.data.optLibraryNames
             })
         );
 
@@ -337,15 +477,9 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             })
         );
 
-        return {
-            header: {
-                description: this.properties.description
-            },
-            groups: [group, group_General, group_Message]
-        };
+        return [group_logo, group, group_Message];
     }
-
-    /** PropertyPane List
+    /** PropertyPane Page
      * @returns PropertyPane page and fields.
      */
      private propertyPanePage_List(): IPropertyPanePage {
@@ -617,10 +751,10 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         };
     }
 
-    /** PropertyPane Page
-     * @returns PropertyPane page and fields.
+    /** PropertyPane Groups
+     * @returns PropertyPane groups array.
      */
-    private propertyPanePage_OrgChart(): IPropertyPanePage {
+    private propertyPaneGroups_OrgChart(): (IPropertyPaneGroup | IPropertyPaneConditionalGroup)[] {
         const group_Colors = {
             groupName: "Org-Chart Color Meanings:",
             groupFields: []
@@ -653,189 +787,39 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
         }
 
-        return {
-            header: {
-                description: "Org-Chart settings."
-            },
-            groups: [group_Colors]
-        };
+        return [group_Colors];
     }
 
-    /** PropertyPane Page
-     * @returns PropertyPane page and fields.
+    /** PropertyPane Groups
+     * @returns PropertyPane groups array.
      */
-    private propertyPanePage_Broadcast(): IPropertyPanePage {
+    private propertyPaneGroups_Broadcast(): (IPropertyPaneGroup | IPropertyPaneConditionalGroup)[] {
         const group = {
-            groupName: "General:",
+            groupName: "Broadcast Settings",
             groupFields: []
         };
 
         group.groupFields.push(
-            PropertyPaneTextField("broadcastDays", {
-                label: "Enter the number of days to broadcast bios for: (0 - 999)",
-                errorMessage: this.propertyPane_.broadcastDaysErrorMessage
+            PropertyPaneDropdown("broadcastDays", {
+                label: "Select duration of broadcasted bios for",
+                options: [
+                    {key: 3, text: "3 days"},
+                    {key: 7, text: "7 days"},
+                    {key: 14, text: "14 days"},
+                    {key: 30, text: "30 days"},
+                    {key: 45, text: "45 days"},
+                    {key: 60, text: "60 days"},
+                    {key: 90, text: "90 days"},
+                    {key: 180, text: "180 days"},
+                    {key: 365, text: "365 days"}
+                ]
             })
         );
 
-        return {
-            header: {
-                description: "Broadcast settings."
-            },
-            groups: [group]
-        };
+        return [group];
     }
 
-    /** SPFx PropertyPane onChange event handler. Triggers anytime a PropertyPane form element is changed.
-     * @param propertyPath PropertyPane's target name. Use this property to determine which element triggered the onChange.
-     * @param oldValue Previous value
-     * @param newValue New value
-     */
-    public async onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any) {
-        const reImageURL = /(^[https:\/\/|\/].*\.(?:png|jpg|jpeg)(\?.*)?)$/i;
-        let tempValue;
-
-        this.propertyPane_.propertyChanged = true;
-
-        // do something based on which property (propertyPath) changed
-        switch (propertyPath) {
-            case "displayType": // display type dropdown changed
-                this.updateRenderProperty("displayType", newValue);
-                this.context.propertyPane.refresh();
-                break;
-
-            case "logo": // default About-Us page logo
-                newValue = trim(newValue || "");
-
-                if (reImageURL.test(newValue) || newValue === "") {
-                    this.propertyPane_.logoErrorMessage = "";
-                    this.properties.logo = newValue;
-
-                } else {
-                    this.propertyPane_.logoErrorMessage = "Invalid URL format. Path must be to .PNG or .JPG.";
-                    this.properties.logo = oldValue;
-                    this.context.propertyPane.refresh();
-                }
-                break;
-
-            case "startingID":
-                // if empty
-                if (trim(newValue).length === 0) newValue = "0";
-
-                tempValue = parseInt(newValue);
-
-                if (isNaN( tempValue )) {
-                    this.propertyPane_.startingIDErrorMessage = "Must be a valid number.";
-                    this.properties.startingID = oldValue;
-                    this.context.propertyPane.refresh();
-
-                } else if (tempValue < 0) {
-                    this.propertyPane_.startingIDErrorMessage = "Value must be 0 or greater.";
-                    this.properties.startingID = oldValue;
-                    this.context.propertyPane.refresh();
-
-                } else {
-                    this.propertyPane_.startingIDErrorMessage = "";
-                    this.properties.startingID = tempValue;
-
-                }                break;
-
-            case "ppListName_dropdown":  // select a list dropdown changed
-                
-                if (newValue === "") return;
-
-                // show warning. we need to ensure the 'About-Us' list properties and fields are set/available
-                CustomDialog.confirm(
-                    `Do you want to modify "${newValue}" list with About-Us fields and properties? Click "Continue" to proceed.`,
-                    "IMPORTANT! Changes may be irreversible.",
-                    {
-                        "yes": "Continue",
-                        "no": "Cancel"
-                    }).then( response => {
-
-                        // 'continue'?
-                        if (response === true) {
-                            const modalMsg = CustomDialog.modalMsg.apply(null, this.modalMsg_processing);
-                            this.list_.ensureList(newValue).then( () => {
-                                this.updateRenderProperty("listName", newValue);
-                                this.properties.ppListName_dropdown = newValue;
-                                this.propertyPane_.showPickListMenu = false;
-                                this.context.propertyPane.refresh();
-                                modalMsg.close();
-
-                            }).catch( er => {
-                                modalMsg.close();
-                                LOG(`ERROR! Unable to check or update '${ newValue }' list with About-Us properties & fields.`, er);
-                                CustomDialog.alert("Something went wrong! See the console for details.", "ERROR").then( () => {
-                                    this.properties.ppListName_dropdown = "";
-                                    this.propertyPane_.showPickListMenu = true;
-                                    this.context.propertyPane.refresh();
-                                });
-
-                            });
-
-                        } else {
-                            // cancelled
-                            this.properties.ppListName_dropdown = "";
-                            this.propertyPane_.showPickListMenu = true;
-                            this.context.propertyPane.refresh();
-
-                        }
-                    });
-
-                break;
-        
-            case "ownerGroup": // list permissions updated
-                this.properties.ownerGroup = newValue;
-                this.resetListPermissions();
-                break;
-
-            case "managerGroup": // list permissions updated
-                this.properties.managerGroup = newValue;
-                this.resetListPermissions();
-                break;
-
-            case "readerGroup": // list permissions updated
-                this.properties.readerGroup = newValue;
-                this.resetListPermissions();
-                break;
-
-            case "broadcastDays":   // broadcast days must be a number
-                // if empty
-                if (trim(newValue).length === 0) newValue = "0";
-
-                tempValue = parseInt(newValue);
-
-                if (isNaN( tempValue )) {
-                    this.propertyPane_.broadcastDaysErrorMessage = "Must be a valid number.";
-                    this.properties.broadcastDays = oldValue;
-                    this.context.propertyPane.refresh();
-
-                } else if (tempValue < 0 || tempValue > 999) {
-                    this.propertyPane_.broadcastDaysErrorMessage = "Value must be between 0 and 999.";
-                    this.properties.broadcastDays = oldValue;
-                    this.context.propertyPane.refresh();
-
-                } else {
-                    this.propertyPane_.broadcastDaysErrorMessage = "";
-                    this.properties.broadcastDays = tempValue;
-
-                }
-
-                break;
-
-            default:
-                LOG("Uncaught PropertyPane change handler:", propertyPath, oldValue, newValue);
-        }
-    }
-
-    /** SPFx onClose event handler. Refresh render if any property pane field changed. */
-    protected async onPropertyPaneConfigurationComplete(): Promise<void> {
-        if (this.propertyPane_.propertyChanged) {
-            this.propertyPane_.propertyChanged = false;
-            await this.updateRenderProperty();
-        }
-    }
-
+    // EVENT HANDLERS
     /** 'Create New List' click event handler. Prompts user for a list name, then creates it.
      * @param evt Click event object
      * @returns Promise. Resolved when the dialog closes and the list is created
@@ -977,11 +961,11 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
     private async populateListNameOptions(): Promise<IPropertyPaneDropdownOption[]> {
         try {
             if (this.propertyPane_.data.optListNames.length === 0) {
-                const DATA = await DataFactory.getAllLists(),
-                    listNames = DATA.map(i => i.Title);
+                const data = await DataFactory.getAllLists(),
+                    names = data.map(i => i.Title);
 
-                listNames.sort();
-                this.propertyPane_.data.optListNames = listNames.map(name => { return {key: name, text: name}; });
+                names.sort();
+                this.propertyPane_.data.optListNames = names.map(name => { return {key: name, text: name}; });
 
                 // add a blank option
                 this.propertyPane_.data.optListNames.unshift({key: "", text: "-"});
@@ -989,6 +973,27 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             }
         } catch (er) {
             LOG("ERROR! Unable to get list names.", er);
+        }
+
+        return this.propertyPane_.data.optListNames;
+    }
+
+    /** Gets and populates library name options 
+     * @returns Array of existing library names. Formatted: [{key: string, text: string}, ...];
+     */
+    private async populateLibraryNameOptions(): Promise<IPropertyPaneDropdownOption[]> {
+        try {
+            if (this.propertyPane_.data.optLibraryNames.length === 0) {
+                const data = await DataFactory.getAllLibraries(this.context.pageContext.web.absoluteUrl);
+
+                this.propertyPane_.data.optLibraryNames = data.map(library => { return {key: library.ServerRelativeUrl, text: library.Title}; });
+
+                // add a blank option
+                this.propertyPane_.data.optLibraryNames.unshift({key: "", text: "-"});
+                
+            }
+        } catch (er) {
+            LOG("ERROR! Unable to get library names.", er);
         }
 
         return this.propertyPane_.data.optListNames;
@@ -1043,16 +1048,15 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 }
 
 
-//#region PRIVATE LOG
-/** Prints out debug messages. Decorated console.info() or console.error() method.
+//#region GLOBAL (NON-REACT) HELPERS -  REACT TYPE, GLOBAL HELPERS ARE LOCATED ON AboutUsApp.tsx
+/** Prints out log messages. Decorated console.info() or console.error() method.
  * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
  */
- function LOG(...args: any[]) {
+export function LOG(...args: any[]) {
     // is an error message, if first argument is a string and contains "error" string.
     const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-    args = ["(About-Us AboutUsAppWebPart.ts)"].concat(args);
 
-    if (window && window.console) {
+    if (window && "console" in window) {
         if (isError && console.error) {
             console.error.apply(null, args);
 
@@ -1062,10 +1066,44 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         }
     }
 }
-//#endregion
+
+/** Prints out DEBUG messages with StackTrace to the console. Decorated console.trace().
+ * Use DEBUG() instead of LOG() to make it easier to find and comment out debug statements before production build.
+ * @param args Message or object to view in the console
+ */
+export function DEBUG(...args: any[]) {
+    let output = ["DEBUG:"];
+    output = output.concat(args);
+
+    if (window && "console" in window) {
+        if (console.trace) {
+            console.trace.apply(null, output);
+            
+        } else if (Error) {
+            try{
+                const error = new Error();
+                if (error.stack) console.info("StackTrace: Not an", error.stack);
+            } catch (er) { /* fail silently */ }
+
+        } else {
+            console.info.apply(null, output);
+        }
+    }
+}
+
+/** Prints out DEBUG messages to the console. Decorated console.info().
+ * @param args Message or object to view in the console
+ */
+ export function DEBUG_NOTRACE(...args: any[]) {
+    let output = ["DEBUG:"];
+    output = output.concat(args);
+
+    if (window && "console" in window) {
+        console.info.apply(null, output);
+    }
+}
 
 
-//#region GLOBAL HELPERS (NON-REACT TYPES)
 /** Pauses the script for a set amount of time.
 * @param milliseconds Amount of milliseconds to sleep.
 * @returns Promise
@@ -1111,5 +1149,29 @@ export function isInRange_numDays(date: Date, numDaysToBroadcast: number): boole
         }
     }
     return false;
+}
+
+/** Properly escape special characters with backslashes (\).
+ * @param str String to escape
+ * @returns Escaped string
+ */
+export function escapeProperly(str: string): string {
+    return (str) ? str.replace(/([()[{*+.$^\\|?])/g, '\\$1') : str;
+}
+
+/** Convert an array of strings into a single sting. Similar to join(", ") but adds a union (" and ", " or ") to the end.
+ * @param arr Array to convert into a string list
+ * @param joinSeparator Main separateor between words. Default: ", "
+ * @param union Union type. Usually ' and ' or ' or '. Default: " and "
+ * @param oxford Add the trailing separator (usually a comma) before the union. Default: true
+ * @returns String of words
+ */
+export function arrayListFormat(arr: string[], joinSeparator: string = ", ", union: string = " and ", oxford: boolean = true): string {
+    const array = [...arr],
+        last = array.pop();
+
+    if (array.length <= 1) return array.join("");
+
+    return array.join(joinSeparator) + ((oxford && array.length > 1) ? trimEnd(joinSeparator): "") + union + last;
 }
 //#endregion

@@ -100,7 +100,7 @@
       "__metadata": {
         "type": "SP.FieldNumber"
       },
-      "DefaultValue": "0",
+      "DefaultValue": "100",
       "Description": "Order placement compared to it's piers.",
       "InternalName": "OrderBy",
       "Required": true,
@@ -371,10 +371,10 @@
         "type": "SP.FieldMultiChoice"
       },
       "DefaultValue": ";#About-Us Page;#Org-Chart;#Phone Directory",
-      "Description": "Select how you want to display this information. If nothing is selected, this item will exists but will not display anywhere.",
+      "Description": "Select where you want to display this information. If nothing is selected, this item will exists but will not be displayed anywhere.",
       "InternalName": "DisplayType",
       "Required": false,
-      "Title": "Where to display this informtion",
+      "Title": "Display this informtion as",
       "FieldTypeKind": 15,
       "FillInChoice": false,
       "Choices": {
@@ -537,13 +537,34 @@
         "type": "url",
         "internalName": "image",
         "label": "Link to image",
-        "defaultValue": ""
+        "defaultValue": "",
+        "filePickerProps": {
+          "label": "Or select the bio image from this site:",
+          "buttonLabel": "Select an image",
+          "accepts": ["jpg", "jpeg", "png", "svg", "ico"],
+          "hideWebSearchTab": true,
+          "hideStockImages": true,
+          "hideOrganisationalAssetTab": true,
+          "hideOneDriveTab": true,
+          "hideLocalUploadTab": true,
+          "includePageLibraries": false
+        }
       },
       {
         "type": "url",
         "internalName": "bio",
         "label": "Link to biography",
-        "defaultValue": ""
+        "defaultValue": "",
+        "filePickerProps": {
+          "label": "Or select the bio site or document:",
+          "buttonLabel": "Select the bio",
+          "hideWebSearchTab": true,
+          "hideStockImages": true,
+          "hideOrganisationalAssetTab": true,
+          "hideOneDriveTab": true,
+          "hideLocalUploadTab": true,
+          "includePageLibraries": false
+        }
       },
       {
         "type": "textbox",

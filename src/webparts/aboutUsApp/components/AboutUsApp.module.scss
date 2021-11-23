@@ -196,6 +196,7 @@
     display: grid;
     grid: 
       'messageSection messageSection'
+      'menuSection menuSection'
       'headerSection headerSection'
       'bodySection sideSection'
       'footerSection footerSection';
@@ -227,12 +228,24 @@
       }
     }
 
+    .menuSection {
+      grid-area: menuSection;
+      @include default-text-styles;
+      font-size: small;
+
+      .menu {
+        color: "[theme: menuItemText, default:#323130]";
+      }
+      .icon {
+        color: "[theme: menuIcon, default:#03787c]";
+      }
+    }
+
     .headerSection {
       grid-area: headerSection;
       display: grid;
       grid: 
-        'menuSection menuSection menuSection'
-        'logoSection navSection searchSection'
+        'logoSection breadcrumbSection searchSection'
         'logoSection header header';
       grid-gap: 10px;
       grid-template-columns: min-content auto min-content;
@@ -244,6 +257,9 @@
       .logoSection {
         grid-area: logoSection;
         height: 110px;
+        line-height: 100px;
+        position: relative;
+        text-align: center;
         width: 120px;
 
         .pageLogo {
@@ -251,25 +267,16 @@
           display: block;
           margin: auto;
           max-height: 100px;
-          max-width: 100px
+          max-width: 100px;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform:translate(-50%,-50%);
         }
       }
 
-      .menuSection {
-        grid-area: menuSection;
-        @include default-text-styles;
-        font-size: small;
-  
-        .menu {
-          color: "[theme: menuItemText, default:#323130]";
-        }
-        .icon {
-          color: "[theme: menuIcon, default:#03787c]";
-        }
-      }
-
-      .navSection {
-        grid-area: navSection;
+      .breadcrumbSection {
+        grid-area: breadcrumbSection;
       }
 
       .searchSection {
@@ -308,18 +315,22 @@
     @include default-text-styles($size: small);
 
     .menuItem {
-      height: 14px;
+      padding: 2px 3px;
+
+      &:hover {
+        background-color: inherit;
+      }
     }
   }
 
-  .navSection {
+  .breadcrumbSection {
     @include default-text-styles;
     box-sizing: border-box;
     left: 0;
     position: relative;
     top: 0;
 
-    .topNavList {
+    .topBreadcrumbList {
       color: "[theme: Navigation, default:#605e5c]";
       font-weight: 600;
       list-style: none;
@@ -327,15 +338,15 @@
       padding: 0;
       white-space: nowrap;
 
-      .navItem {
+      .breadcrumbItem {
         color: "[theme: Navigation, default:#605e5c]";
 
-        .navText {
+        .breadcrumbText {
           text-decoration: none;
           white-space: nowrap;
         }
 
-        &:hover .subNavContainer {
+        &:hover .subBreadcrumbContainer {
           display: block;
           opacity: 1;
           transition: opacity 250ms linear;
@@ -343,11 +354,11 @@
 
       }
 
-      .topNavItem {
+      .topBreadcrumbItem {
         color: inherit !important;
         display: inline-block;
         
-        &:not(:last-child) > .navText::after {
+        &:not(:last-child) > .breadcrumbText::after {
           content: "\25B8";
           display: inline-block;
           margin-left: 10px;
@@ -355,7 +366,7 @@
         }
       }
 
-      .subNavContainer {
+      .subBreadcrumbContainer {
         background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
         border-left: 3px solid;
         border-left-color: "[theme: NavigationAccent, default:#03787c]";
@@ -371,12 +382,12 @@
         width: 300px;
         z-index: 100;
 
-        .subNavList {
+        .subBreadcrumbList {
           list-style: none;
           margin: 0;
           padding: 0;
 
-          .subNavItem {
+          .subBreadcrumbItem {
             display: block;
             margin: 3px 5px;
           }
@@ -548,6 +559,8 @@
     }
 
     .validateButton {
+      background-color: "[theme: ButtonHoverBackground, default:#c5e9ea]";
+      border-color: "[theme: ButtonHoverBorder, default:#98d6d8]";
       border-radius: 5px;
       border-style: solid;
       border-width: 1px;
@@ -583,7 +596,7 @@
       justify-content: space-between;
       padding: 0;
       margin: 0;
-      width: 268px;
+      width: 200px;
 
       .searchbox {
         border: none;
@@ -618,7 +631,7 @@
       max-height: 600px;
       overflow: hidden auto;
       position: absolute;
-      width: 268px;
+      width: 200px;
       z-index: 100;
 
       .searchResultsList {
@@ -663,16 +676,13 @@
   .taskAuthContainer {
     display: block;
     margin-left: 20px;
+    margin-top: -3px;
     word-break: break-word;
 
     .taskAuthText {
       color: "[theme: neutralSecondaryAlt, default:#8a8886]";
+      font-size: small;
       font-style: italic;
-
-      // &::before {
-      //   content: "Tasking Authority: ";
-      //   margin-right: 10px;
-      // }
     }
   }
 }

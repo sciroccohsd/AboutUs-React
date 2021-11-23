@@ -12,19 +12,21 @@ import { ActionButton, CommandBar, DirectionalHint,
     ICommandBarStyles,
     IconButton,
     ITooltipProps, 
+    Spinner, 
     TooltipHost} from 'office-ui-fabric-react';
 
 //> npm install react-easy-sort
 import SortableList, { SortableItem } from 'react-easy-sort';
-import AboutUsAppWebPart, { sourceContainsAny, IAboutUsAppWebPartProps } from '../AboutUsAppWebPart';
+import AboutUsAppWebPart, { sourceContainsAny, IAboutUsAppWebPartProps, LOG, DEBUG, DEBUG_NOTRACE } from '../AboutUsAppWebPart';
 import { Wrapper } from './AboutUsApp';
-import DataFactory, { IDataStructureItem } from './DataFactory';
+import DataFactory, { IDataStructureItem, IUserPermissions } from './DataFactory';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ISiteUserInfo } from '@pnp/sp/site-users/types';
 import { UserCustomActions } from '@pnp/sp/user-custom-actions/types';
 import { IActionProps } from '@pnp/spfx-controls-react';
 import { ISearchResult } from '@pnp/sp/search';
 import { IComponentStyles } from '@uifabric/foundation';
+import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormControls';
 
 
 //#region ICON
@@ -584,45 +586,46 @@ import { IComponentStyles } from '@uifabric/foundation';
     //#endregion
 //#endregion
 
-//#region BREADCRUMB NAVIGATION
+//#region BREADCRUMB
     //#region INTERFACE
-    interface INavDisplayItemProps {
+    interface IBreakcrumbItemProps {
         properties: IAboutUsAppWebPartProps;
         item: IDataStructureItem;
         text: string;
         displayType: string;
-        onNavClick: (id: number)=>void;
+        onClick: (id: number)=>void;
         className?: string;
         displayAll?: boolean;
     }
 
-    interface INavDisplaySubmenuProps {
+    interface IBreadcrumbSubmenuProps {
         properties: IAboutUsAppWebPartProps;
         items: IDataStructureItem[];
         className?: string;
         displayType: string;
-        onNavClick: (id: number)=>void;
+        onClick: (id: number)=>void;
         ignoreItems?: (number | string)[];
     }
 
-    export interface INavDisplayProps {
+    export interface IBreadcrumbDisplayProps {
         properties: IAboutUsAppWebPartProps;
         structure: Record<any, IDataStructureItem>;
+        displayType: string;
         itemID?: number | string;
-        onNavClick: (id: number)=>void;
+        onClick: (id: number)=>void;
     }
     //#endregion
 
-    //#region NAV DISPLAY
-    class navDisplayItem extends React.Component<INavDisplayItemProps> {
-        public render(): React.ReactElement<INavDisplayItemProps> {
-            const css = [ styles.navItem ],
+    //#region DISPLAY
+    class breadcrumbItem extends React.Component<IBreakcrumbItemProps> {
+        public render(): React.ReactElement<IBreakcrumbItemProps> {
+            const css = [ styles.breadcrumbItem ],
                 isLink = (this.props.item.DisplayType.indexOf(this.props.displayType) > -1),
                 url = new URL(location.href || ""),
                 urlParams = url.searchParams,
                 _onClick = (evt) => {
                     evt.preventDefault();
-                    this.props.onNavClick(this.props.item.ID);
+                    this.props.onClick(this.props.item.ID);
                     return false;
                 };
 
@@ -633,8 +636,8 @@ import { IComponentStyles } from '@uifabric/foundation';
             <li className={ css.join(" ") }>
                 <Wrapper
                     condition={ isLink }
-                    wrapper={ children => <a href={ url.toString() } className={ styles.navText } onClick={ _onClick }>{children}</a> }
-                    else={ children => <div className={ styles.navText }>{children}</div> }
+                    wrapper={ children => <a href={ url.toString() } className={ styles.breadcrumbText } onClick={ _onClick }>{children}</a> }
+                    else={ children => <div className={ styles.breadcrumbText }>{children}</div> }
                 >
                     { this.props.text }
                 </Wrapper>
@@ -644,21 +647,21 @@ import { IComponentStyles } from '@uifabric/foundation';
         }
     }
 
-    class navDisplaySubmenu extends React.Component<INavDisplaySubmenuProps> {
-        public render(): React.ReactElement<INavDisplaySubmenuProps> {
+    class breadcrumbSubmenu extends React.Component<IBreadcrumbSubmenuProps> {
+        public render(): React.ReactElement<IBreadcrumbSubmenuProps> {
             const items = this.generateChildrenList();
 
             return (items.length > 0) ?
-                <div className={ styles.subNavContainer }>
-                    <ul className={ styles.subNavList }>
+                <div className={ styles.subBreadcrumbContainer }>
+                    <ul className={ styles.subBreadcrumbList }>
                         {
-                            items.map(item => React.createElement(navDisplayItem, {
+                            items.map(item => React.createElement(breadcrumbItem, {
                                 properties: this.props.properties,
                                 item: item,
                                 text: `${item.Title} - ${item.Name}`,
                                 displayType: this.props.displayType,
-                                onNavClick: this.props.onNavClick,
-                                className: styles.subNavItem })
+                                onClick: this.props.onClick,
+                                className: styles.subBreadcrumbItem })
                             )
                         }
                     </ul>
@@ -684,35 +687,34 @@ import { IComponentStyles } from '@uifabric/foundation';
         
     }
 
-    export class navDisplay extends React.Component<INavDisplayProps> {
-        public render(): React.ReactElement<INavDisplayProps> {
-            const displayType = "About-Us Page",
-                topNavItems = this.generateTopNavItems(this.props.structure, this.props.itemID);
+    export class breadcrumbDisplay extends React.Component<IBreadcrumbDisplayProps> {
+        public render(): React.ReactElement<IBreadcrumbDisplayProps> {
+            const topItems = this.generateTopBreadcrumbItems(this.props.structure, this.props.itemID);
 
             return (
-                <div className={ styles.navSection } >
-                    { (topNavItems.length > 0) ?
-                        <ul className={ styles.topNavList }>
+                <div className={ styles.breadcrumbSection } >
+                    { (topItems.length > 0) ?
+                        <ul className={ styles.topBreadcrumbList }>
                             {
-                                topNavItems.map((item, i) => {
-                                    const nextItem = (i < topNavItems.length - 1) ? topNavItems[i + 1] : null;
+                                topItems.map((item, i) => {
+                                    const nextItem = (i < topItems.length - 1) ? topItems[i + 1] : null;
 
-                                    return React.createElement(navDisplayItem, {
+                                    return React.createElement(breadcrumbItem, {
                                         properties: this.props.properties,
                                         item: item,
                                         text: item.Title,
-                                        displayType: displayType,
-                                        className: styles.topNavItem,
+                                        displayType: this.props.displayType,
+                                        className: styles.topBreadcrumbItem,
                                         displayAll: true,
-                                        onNavClick: this.props.onNavClick },
+                                        onClick: this.props.onClick },
 
-                                        React.createElement(navDisplaySubmenu, {
+                                        React.createElement(breadcrumbSubmenu, {
                                             properties: this.props.properties,
                                             ignoreItems: (nextItem) ? [nextItem.ID] : null,
                                             items: item.children,
-                                            displayType: displayType,
-                                            onNavClick: this.props.onNavClick,
-                                            className: styles.subNavItem }
+                                            displayType: this.props.displayType,
+                                            onClick: this.props.onClick,
+                                            className: styles.subBreadcrumbItem }
                                         )
                                     );
                                 })
@@ -723,7 +725,7 @@ import { IComponentStyles } from '@uifabric/foundation';
             );
         }
 
-        private generateTopNavItems(
+        private generateTopBreadcrumbItems(
             structure: Record<(number | string),
             IDataStructureItem>, itemID: number | string): IDataStructureItem[] {
 
@@ -891,7 +893,7 @@ export class PageValidationDisplay extends React.Component<IPageValidationDispla
             tooltipText = [],
             css = [styles.validateButton],
             btnProps: IButtonProps = {
-                text: "Update validation status",
+                text: (this.props.validated) ? "Update validation status" : "Validate site information",
                 iconProps: { iconName: "CompletedSolid" },
                 className: "",
                 onClick: (evt) => {this.props.onValidate(); return false;}
@@ -1158,8 +1160,7 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
 
 
         // get search results
-        const response = await this.props.list.search(this.state.queryText),
-            results = response.PrimarySearchResults;
+        const results = await this.props.list.search(this.state.queryText);
 
         this.setState({
             "results": results,
@@ -1182,30 +1183,43 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
 }
 //#endregion
 
+
 //#region PAGE DISPLAY
-export default interface IPageDisplayProps {
-    ctx: WebPartContext;
-    properties: IAboutUsAppWebPartProps;
-    list: DataFactory;
-    itemId: number;
-    changeDisplay: (displayType: string)=>void;
-    changeItem: (id: number, title: string, url: string) => void;
-    pageLayout?: "default";
-}
+    //#region INTERFACES & TYPES
+    export default interface IPageDisplayProps {
+        ctx: WebPartContext;
+        properties: IAboutUsAppWebPartProps;
+        list: DataFactory;
+        itemId: number;
+        changeDisplay: (displayType: string)=>void;
+        changeItem: (id: number, title?: string, url?: string, replaceState?: boolean) => void;
+    }
+    export interface IPageDisplayState {
+        itemId: number;
+        permissions: IUserPermissions;
+        dataStatus: TDataStatusTypes;
+        [key: string]: any;
+    }
 
-export interface IUserInfo {
-    "odata.type"?: string;
-    "odata.id"?: string;
-    "ID": number;
-    "Title"?: string;
-    "Name"?: string;
-    "EMail"?: string;
-}
+    export interface IUserInfo {
+        "odata.type"?: string;
+        "odata.id"?: string;
+        "ID": number;
+        "Title"?: string;
+        "Name"?: string;
+        "EMail"?: string;
+    }
 
-export type TStructure = Record<(number | string), IDataStructureItem>;
+    export type TDataStatusTypes = "init" | "nodata" | "invalid" | "loading" | "ready";
 
-export default class PageDisplay extends React.Component<IPageDisplayProps, Record<string, any>> {
+    export type TStructure = Record<(number | string), IDataStructureItem>;
+    
+    //#endregion
+
+export default class PageDisplay extends React.Component<IPageDisplayProps, IPageDisplayState> {
     //#region PROPERTIES
+    public static readonly type = "About-Us Page";  // must match one of the List's 'DisplayType' field options
+
     private structure: TStructure = {};
     //#endregion
 
@@ -1214,6 +1228,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
         super(props);
 
         this.state = {
+            dataStatus: "init",
             itemId: null,
             permissions: {
                 canAdd: false,
@@ -1225,74 +1240,105 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
 
     public render(): React.ReactElement<IPageDisplayProps> {
         // get item data only if different. usually from history state changes (history.pushState or window.onpopstate)
-        if (this.state.itemId && this.state.itemId !== this.props.itemId) this.getItem(this.props.itemId);
+        if (this.state.itemId !== this.props.itemId) this.getItem(this.props.itemId);
 
-        return (
-            <div className={ styles.defaultPageLayout }>
-                { this.displayAppMessaage(this.props.properties.appMessage, this.props.properties.appMessageIsAlert) }
+        switch (this.state.dataStatus) {
+            case "init":    // just starting up
+            case "loading": // loading data
+                return <LoadingSpinner />;
 
-                <div className={ styles.headerSection }>
-                    { this.displayLogo(this.state.Logo) }
-                    { this.displayMenu() }
-                    { this.displayNavigation() }
-                    { this.displaySearch() }
-                    { this.displayHeaderTitle(this.state.Title, this.state.Name, this.state.Description) }
-                </div>
+            case "nodata":  // list is empty or no items returned
+                return <ShowConfigureWebPart
+                    onConfigure={ () => { this.props.changeDisplay("new");} }
+                    iconName="Org"
+                    iconText="There are no items to display."
+                    description={ `When adding an item, select "${PageDisplay.type}" as the display type.`}
+                    buttonLabel="Add New Item"
+                />;
 
-                <div className={ styles.bodySection }>
-                    { this.displayMission(this.state.Mission) }
-                    { this.displayTasks(this.state.Tasks) }
-                    { this.displayContent(this.state.Content) }
-                    { this.displaySubContent(this.state.SubContent) }
-                    { this.displayKeywords(this.state.Keywords, "", true) }
-                    { this.displayLinks(this.state.Links, "", true) }
-                    { this.displayContacts(this.state.Contacts, "", true) }
-                </div>
+            case "invalid": // something went wrong?
+                return <div className="ms-error">
+                    <Icon iconName="Error" className={ styles.fabricUIIcon }/>
+                    Something went wrong. Please contact the site's administrator. 
+                    Detailed error messages may have been written to the Debug Console.
+                </div>;
+        
+            case "ready":
+                switch (this.props.properties.pageTemplate) {
+                    // add more templates here. remember to update the SCSS
 
-                <div className={ styles.sideSection }>
-                    { this.displayBios(this.state.Bios) }
-                    { this.displaySOP(this.state.SOP, "", true) }
-                    { this.displayOfficeInfoBlock(
-                        this.state.Location,
-                        this.state.Address,
-                        this.state.Phone,
-                        this.state.DSN,
-                        this.state.FAX,
-                        this.state.SignatureBlock,
-                        true
-                    ) }
-                </div>
+                    default:    // "default"
+                        return this.defaultDisplayTemplate();
+                }
 
-                <div className={ styles.footerSection }>
-                    { this.displayContentManagers(this.state.ContentManagers, "", true) }
-                    { this.displayPageValidation(this.state.Validated, this.state.ValidatedBy) }
-                </div>
-            </div>
-        );
+            default:
+                return null;
+        } 
     }
 
     public async componentDidMount() {
-        // get item data & nav items
+        // get item data & breadcrumb items
         const [ structure, permissions] = await Promise.all([
-                this.props.list.getDataStructure(this.props.properties),
+                this.props.list.getDataStructure(this.props.properties.homeTitle),
                 this.props.list.getUserPermissions()
             ]);
 
         this.structure = structure;
 
-        LOG("structure:", this.structure);
-        LOG("permissions:", permissions);
-
-        // init state
-        const initState = {
-            itemId: this.props.itemId,
-            permissions: permissions
-        };
+        this.setState({...this.state, permissions: permissions});
+        
 
         // initialize state with item data
-        const item = await this.getItem(this.props.itemId, initState);
+        const item = await this.getItem(this.props.itemId);
 
-        LOG("item:", item);
+        DEBUG_NOTRACE("structure:", this.structure);
+        DEBUG_NOTRACE("permissions:", permissions);
+        DEBUG_NOTRACE("item:", item);
+    }
+    //#endregion
+
+    //#region DISPLAYS/TEMPLATES
+    private defaultDisplayTemplate(): React.ReactElement {
+        return <div className={ styles.defaultPageLayout }>
+            { this.displayAppMessaage(this.props.properties.appMessage, this.props.properties.appMessageIsAlert) }
+            { this.displayMenu() }
+
+            <div className={ styles.headerSection }>
+                { this.displayLogo(this.state.Logo) }
+                { this.displayBreadcrumb() }
+                { this.displaySearch() }
+                { this.displayHeaderTitle(this.state.Title, this.state.Name, this.state.Description) }
+            </div>
+
+            <div className={ styles.bodySection }>
+                { this.displayMission(this.state.Mission) }
+                { this.displayTasks(this.state.Tasks) }
+                { this.displayContent(this.state.Content) }
+                { this.displaySubContent(this.state.SubContent) }
+                { this.displayKeywords(this.state.Keywords, "", true) }
+                { this.displayLinks(this.state.Links, "", true) }
+                { this.displayContacts(this.state.Contacts, "", true) }
+            </div>
+
+            <div className={ styles.sideSection }>
+                { this.displayBios(this.state.Bios) }
+                { this.displaySOP(this.state.SOP, "", true) }
+                { this.displayOfficeInfoBlock(
+                    this.state.Location,
+                    this.state.Address,
+                    this.state.Phone,
+                    this.state.DSN,
+                    this.state.FAX,
+                    this.state.SignatureBlock,
+                    true
+                ) }
+            </div>
+
+            <div className={ styles.footerSection }>
+                { this.displayContentManagers(this.state.ContentManagers, "", true) }
+                { this.displayPageValidation(this.state.Validated, this.state.ValidatedBy) }
+            </div>
+        </div>;
     }
     //#endregion
 
@@ -1310,7 +1356,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
 
     private displayLogo(logo: {"Url": string, "Description": string}, className?: string): React.ReactElement {
         const css = [styles.logoSection],
-            imgUrl = (logo) ? trim(logo.Url) : this.props.properties.logo ;
+            imgUrl = (logo) ? trim(logo.Url) : (this.props.properties.logo) ? this.props.properties.logo.fileAbsoluteUrl || "" : "" ;
 
         if (className) css.push(className);
 
@@ -1319,7 +1365,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
         </div> : null ;
     }
 
-    private displayMenu(className?: string): React.ReactElement {
+    private displayMenu(showViews: boolean = true, showTools: boolean = true, className?: string): React.ReactElement {
         const css = [styles.menuSection],
             key = this.props.ctx.webPartTag,
             commandBarStyles: ICommandBarStyles = {
@@ -1330,41 +1376,73 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
             items: ICommandBarItemProps[] = [],
             farItems: ICommandBarItemProps[] = [];
 
-        // 'New' button
-        if (this.state.permissions.canAdd) farItems.push({
-            key: `btnNew${key}`,
-            text: "Add Item",
-            iconProps: { iconName: "Add", styles: {root: {"fontSize": "12px"}} },
-            className: styles.menuItem,
-            onClick: evt => { this.props.changeDisplay("new"); }
-        });
+        if (className) css.push(className);
 
-        // 'Edit' button
-        if (this.state.permissions.canEdit) farItems.push({
-            key: `btnEdit${key}`,
-            text: "Edit Item",
-            iconProps: { iconName: "Edit", styles: {root: {"fontSize": "12px"}} },
-            className: styles.menuItem,
-            onClick: evt => { this.props.changeDisplay("edit"); }
-        });
+        if (showViews) {
+            // 'Org Chart' button
+            items.push({
+                key: `btnOrgChart${key}`,
+                text: "Org Chart",
+                iconProps: { iconName: "Org", styles: {root: {"fontSize": "12px"}} },
+                className: styles.menuItem,
+                onClick: evt => { this.props.changeDisplay("orgchart"); }
+            });
+
+            // 'Accordian' button
+            items.push({
+                key: `btnAccordian${key}`,
+                text: "Explorer",
+                iconProps: { iconName: "DOM", styles: {root: {"fontSize": "12px"}} },
+                className: styles.menuItem,
+                onClick: evt => { this.props.changeDisplay("accordian"); }
+            });
+
+            // 'Phone' button
+            items.push({
+                key: `btnPhone${key}`,
+                text: "Phone Directory",
+                iconProps: { iconName: "PublishCourse", styles: {root: {"fontSize": "12px"}} },
+                className: styles.menuItem,
+                onClick: evt => { this.props.changeDisplay("phone"); }
+            });
+        }
+
+        if (showTools) {
+            // 'New' button
+            if (this.state.permissions.canAdd) farItems.push({
+                key: `btnNew${key}`,
+                text: "Add Item",
+                iconProps: { iconName: "Add", styles: {root: {"fontSize": "12px"}} },
+                className: styles.menuItem,
+                onClick: evt => { this.props.changeDisplay("new"); }
+            });
+
+            // 'Edit' button
+            if (this.state.permissions.canEdit && this.state.ID) farItems.push({
+                key: `btnEdit${key}`,
+                text: "Edit Item",
+                iconProps: { iconName: "Edit", styles: {root: {"fontSize": "12px"}} },
+                className: styles.menuItem,
+                onClick: evt => { this.props.changeDisplay("edit"); }
+            });
+        }
 
         return (items.length > 0 || farItems.length > 0)
             ? <CommandBar items={ items } farItems={ farItems } className={ css.join(" ") } styles={ commandBarStyles } />
             : null;
     }
     
-    private displayNavigation(): React.ReactElement {
-        const props = {
+    private displayBreadcrumb(): React.ReactElement {
+        const props: IBreadcrumbDisplayProps = {
             properties: this.props.properties,
             structure: this.structure,
+            displayType: PageDisplay.type,
             itemID: this.props.itemId,
-            onNavClick: this.navigateTo.bind(this)
+            onClick: this.navigateTo.bind(this)
         };
 
         return (Object.keys(this.structure).length > 0)
-            ? <div className={ styles.navSection }>
-                { React.createElement(navDisplay, props) }
-            </div>
+            ? React.createElement(breadcrumbDisplay, props)
             : null;
     }
 
@@ -1606,8 +1684,8 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
 
         if (className) css.push(className);
 
-        // render if: item has a title (valid item data) AND there is either users or an owner
-        return (this.state.Title && ((users && users.length > 0) || this.props.properties.ownerGroup))
+        // render if: item data was fetched AND there is either users or an owner
+        return (this.state.ID && ((users && users.length > 0) || this.props.properties.ownerGroup))
             ? <>
                     { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
                     <div className={css.join(" ") }>{ React.createElement(ContentManagersDisplay, props) }</div>
@@ -1619,7 +1697,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
                         <Icon iconName="IncidentTriangle" className={ styles.fabricUIIcon }/>
                         <span>
                             There are no Content Managers, Owners, or Admins for this page. 
-                            Please contact the site's owner or admins to cont
+                            Please contact the site's owner or admins to update permissions to this web part.
                         </span>
                     </div>
                 </div>
@@ -1648,29 +1726,101 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
     //#endregion
 
     //#region HELPERS
-    /** Get item data. Re-establishes the state object to remove previous item data.
+    /** Get item data. Resets the state object to remove previous item data from it.
+     * - Assumes the Structure object exists and populated.
      * @param id ID of item to fetch
-     * @param initState Optional. Initial starting state.
+     * @param initState Optional. Initial starting state. Useful if the state was pre-built prior to calling this method.
      * @returns Item data object
      */
-    private async getItem(id: number, initState?: Record<string, any>): Promise<any> {
-        const item = await this.props.list.getItemById_expandFields(id);
-
-        if (item.ID in this.structure) this.structure[item.ID].data = item;
+    private async getItem(id: number): Promise<any> {
+        const structureItem = (id in this.structure) ? this.structure[id] : null ;
+        let item = null;
 
         // create new state without all the item data.
         // need to copy all non-item data values.
-        if (!initState) initState = {
+        const initState: IPageDisplayState = {
+            dataStatus: "loading",
             itemId: id, // update item id value
             permissions: this.state.permissions // copy from original state
         };
 
-        for (const key in item) {
-            if (key.indexOf("odata") === 0) continue;
-            if (Object.prototype.hasOwnProperty.call(item, key)) {
-                const data = item[key];
-                initState[key] = data;
+        // if structure object is empty. propably because the list is new/empty.
+        if (Object.keys(this.structure).length === 0) {
+            initState.dataStatus = "nodata";
+            this.setState(initState);
+            return null;    // exit now, do not continue
+        }
+
+        // get item from cache
+        if (structureItem && structureItem.data && Object.keys(structureItem).length > 0) {
+            item = structureItem.data;
+        }
+
+        // try to fetch the item data
+        if (!item) {
+            try{
+                item = await this.props.list.getItemById_expandFields(id);
+            } catch (er) {
+                item = null;
+                LOG(`ERROR! Unable to get item data for ID: ${id}.`, er);
             }
+        }
+
+        // if item wasn't fetchable...
+        if (!item) {
+            // try the startingID (if set) AND current ID isn't the startingID
+            if (typeof this.props.properties.startingID === "number" && id !== this.props.properties.startingID && this.props.properties.startingID > 0) {
+                this.props.changeItem(this.props.properties.startingID, null, null, true);
+                return;
+
+            } else {
+                // try showing the first structure item
+                id = null;
+                for (const key in this.structure) {
+                    const _item = this.structure[key],
+                        _id = parseInt(key);
+
+                    // key's in the structure object can be literal strings or numbers. Numeric keys are list items.
+                    // check to see if key is a number, can be displayed, and wasn't already tried before
+                    if (!isNaN(_id) && _item.DisplayType.indexOf(PageDisplay.type) > -1 && !_item.flags.attemptedFetch) {
+                        id = _id;
+                        _item.flags.attemptedFetch = true;
+                        break;
+                    }
+                }
+
+                if (id) {
+                    this.props.changeItem(id, null, null, true);
+                    return;
+
+                } else {
+                    // there are items in the list but none of them are for this view
+                    initState.dataStatus = "nodata";
+                    this.setState(initState);
+                    return null;    // exit now, do not continue
+                }
+            }
+        }
+
+        // finally, was item found
+        if (item && "DisplayType" in item && item.DisplayType.indexOf(PageDisplay.type) > -1) {
+            initState.dataStatus = "ready";
+
+            // keep track of retrieved items
+            if (item.ID in this.structure) this.structure[item.ID].data = item;
+
+            // add item data to state
+            for (const key in item) {
+                if (key.indexOf("odata") === 0) continue;
+                if (Object.prototype.hasOwnProperty.call(item, key)) {
+                    const data = item[key];
+                    initState[key] = data;
+                }
+            }
+
+        } else {
+            // if still no data by this point, all item ID(s) are invalid
+            initState.dataStatus = "invalid";
         }
 
         this.setState(initState);
@@ -1682,12 +1832,10 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
      * @param id Item ID to navigate to.
      */
     private navigateTo(id: number) {
-        const item = this.structure[id] || null,
-            url = new URL(location.href);
+        const item = this.structure[id] || null;
 
         if (item) {
-            url.searchParams.set(this.props.properties.urlParam, id.toString());
-            this.props.changeItem(id, item.Title, url.toString());
+            this.props.changeItem(id, item.Title);
         }
     }
 
@@ -1718,27 +1866,5 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, Reco
         });
     }
     //#endregion
-}
-//#endregion
-
-
-//#region PRIVATE LOG
-/** Prints out debug messages. Decorated console.info() or console.error() method.
- * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
- */
-function LOG(...args: any[]) {
-    // is an error message, if first argument is a string and contains "error" string.
-    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-    args = ["(About-Us AboutUsDisplay.tsx)"].concat(args);
-
-    if (window && window.console) {
-        if (isError && console.error) {
-            console.error.apply(null, args);
-
-        } else if (console.info) {
-            console.info.apply(null, args);
-
-        }
-    }
 }
 //#endregion

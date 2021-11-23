@@ -27,7 +27,7 @@ import { DateConvention, TimeConvention, TimeDisplayControlType } from '@pnp/spf
 import { IItemAddResult, IItemUpdateResult, _Items } from '@pnp/sp/items/types';
 import { PermissionKind } from '@pnp/sp/security';
 import "@pnp/sp/security";
-import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption, isInRange_numDays, sleep } from '../AboutUsAppWebPart';
+import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption, isInRange_numDays, sleep, LOG } from '../AboutUsAppWebPart';
 import { ISiteUserInfo } from '@pnp/sp/site-users/types';
 
 //#region INTERFACES, TYPES & ENUMS
@@ -72,7 +72,8 @@ export interface IAboutUsKeywordsValue {
 enum DISPLAY_STATE {
     "loading",
     "invalid",
-    "ready"
+    "ready",
+    "saving"
 }
 
 interface IAboutUsFormState {
@@ -133,7 +134,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                         <h3 className={styles.formHeader}>
                             { (this.props.form === "new") 
                                 ? "New About-Us Entry:" 
-                                : `Editing ${ this.listItem.Title}:` 
+                                : `Editing ${ this.listItem.Title }:`
                             }
                         </h3>
                         { (this.props.form) ? this.formFields() : null }
@@ -226,7 +227,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             </div>
         );
     }
-
 //#endregion
 
 //#region CONTROLS
@@ -279,11 +279,18 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
                 return this.customFieldKeywords(field, valueState);
 
+            case "Logo":
+                // url field with file picker
+                return this.customFieldLogo(field, valueState);
+
             case "Validated": 
                 return (this.props.form === "edit") ? this.customFieldValidated(field, valueState) : null ;
 
             case "BroadcastDate":
+                return null;
+
             case "ValidatedBy":
+                valueState.value = this.createValueState_UserValue(valueState.value, field.InternalName);
                 return null;
         }
         
@@ -347,6 +354,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         }
     }
 
+    // SPECIFIC CONTROLS
     /** Create a textbox control.
      * @param field Field information
      * @param valueState ValueState object for this field
@@ -574,7 +582,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 errorMessage: valueState.errorMessage,
 
                 onChange: this.urlfield_onChange.bind(this)
-                
             };
         return React.createElement(FormControls.UrlControl, props);
     }
@@ -692,6 +699,51 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 { React.createElement(AboutUsDisplay.PageValidationDisplay, props) }
             </div>
         </div>;
+    }
+
+    /** Create a Custom 'Logo' control.
+     * @param field Field information
+     * @param valueState ValueState object for this field
+     * @returns Form element with with label, required asterisk, field, description, & error text elements.
+     */ 
+    private customFieldLogo(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState): React.ReactElement {
+        const fieldOption = this.getFieldWebPartOptions_by_InternalName(field.InternalName),
+            titleValue = this.getValueState_by_InternalName("Title"),
+            siteUrl = this.props.ctx.pageContext.web.absoluteUrl,
+            externalRepo = this.props.properties.externalRepo || "",
+            props: FormControls.IUrlControlProps = {
+                disabled: valueState.disabled,
+                id: field.InternalName,
+                required: field.Required || fieldOption.required,
+                label: field.Title,
+                description: field.Description,
+
+                defaultValue: valueState.value,
+
+                errorMessage: valueState.errorMessage,
+
+                onChange: this.urlfield_onChange.bind(this),
+
+                //uploadFolder: (externalRepo) ? [externalRepo, folderName].join("/") : "",
+                externalRepo: externalRepo,
+                folderName: trim(titleValue.value),
+                filePickerProps: {
+                    context: this.props.ctx,
+
+                    // optional
+                    label: "Or select the logo from this site:",
+                    buttonLabel: "Select a logo",
+                    accepts: ["jpg", "jpeg", "png", "svg", "ico"],
+                    hideWebSearchTab: true,
+                    hideStockImages: true,
+                    hideOrganisationalAssetTab: true,
+                    hideOneDriveTab: true,
+                    hideLocalUploadTab: true,
+                    includePageLibraries: false
+                }
+            };
+
+        return React.createElement(FormControls.UrlControl, props);
     }
 //#endregion
     
@@ -1187,7 +1239,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     }
 //#endregion
     
-//#region TOOLBAR CONTROLS (SAVE, CANCEL)
+//#region SAVE, CANCEL, DELETE
     /** New or Edit form command bar
      * @returns DIV with 'Cancel', 'Save command bar
      */
@@ -1257,7 +1309,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
         if (this.fieldsThatHaveBeenModified.length > 0) {
             // make sure they didn't accidentally clicked 'Cancel'
             goBack = await CustomDialog.confirm(`Are you sure you want to cancel? ${(this.props.form === "new") ? 
-                "The new item " : "Changes "} will not be saved.`, "Cancel?", undefined);
+                "The new item" : "Changes"} will not be saved.`, "Cancel?", undefined);
 
         } else {
             // no changes, ok to cancel
@@ -1356,11 +1408,12 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             let response: IItemAddResult;
 
             this.setState({"errorMessage": null});
+            
             try {
                 if (this.props.form === "new") {
                     // new = add item
                     response = await this.props.list.api.items.add(data);
-                    this.listItem.Id = response.data.Id;
+                    this.listItem = response.data;
                 } else {
                     // edit = update item
                     response = await this.props.list.api.items.getById(parseInt(this.listItem.Id)).update(data);
@@ -1371,22 +1424,22 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 if (userCanUpdate) await this.props.list.updateContentManagers(this.listItem.Id);
 
                 // if successful, go back
-                alert("Item was added or updated! Navigate back.");// this.goBack();
+                return this.goBack();
 
             } catch(er) {
-                LOG("ERROR! save():", er);
-                this.setState({"errorMessage": `Unable to ${ this.props.form === "new" ? "create" : "update" } item. ${er}`});
+                LOG("ERROR! Unable to save item:", er);
+                this.setState({
+                    "isProcessingForm": false,
+                    "errorMessage": `Unable to ${ this.props.form === "new" ? "create" : "update" } item. See console for more details.`
+                });
             }
         } else {
             // if on edit form and user clicked 'save' and no data needed to be updated, then just go back
             if (this.props.form === "edit") {
-                // go back
-                alert("Nothing was changed! Navigate back.");// this.goBack();
-
+                return this.goBack();
             }
         }
 
-        this.setState({"isProcessingForm": false});
     }
 
     /** Delete button click handler
@@ -1409,29 +1462,31 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 try {
                     await this.props.list.api.items.getById(this.listItem.Id).delete();
                     modalMsg.close();
-                    this.goBack();
+                    return this.goBack();
 
                 } catch (er) {
-                    modalMsg.close();
-                    CustomDialog.alert("Unable to delete item. See console for details.", "ERROR!");
                     LOG(`ERROR! Unable to delete item '${ this.listItem.Title } (ID: ${ this.listItem.Id })'`, er);
+                    modalMsg.close();
+                    this.setState({
+                        "isProcessingForm": false,
+                        "errorMessage": "Unable to delete item. See console for more details."
+                    });
                 }
 
             }
 
-            this.setState({"isProcessingForm": false});
         }
     }
 
-    private goBack(url?: string): void {
+    private goBack(): void {
+        const url = new URL(location.href);
         this.listItem = null;
 
         if (this.props.history.length > 1) {
-            this.props.history.back();
+            window.history.back();
         } else {
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.delete("form");
-            window.location.assign(window.location.pathname + "?" + urlParams.toString());
+            url.searchParams.delete(`${this.props.properties.urlParam}form`);
+            location.assign(url.toString());
         }
     }
 
@@ -1773,8 +1828,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         // trigger update
         this.setValueState_for(internalName, valueState);
-
-        LOG("updateValueState_ComplexData(): valueState", valueState);
     }
 
     /** Rearranges the order of array objects
@@ -1883,9 +1936,19 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      */
     private generateMicroForm(internalName: string, formValues?: Record<string, any>): AboutUsMicroForm {
         const field = this.getField_by_InternalName(internalName),
+            titleValue = this.getValueState_by_InternalName("Title"),
             template = (internalName in DataFactory.listTemplate.fieldMicroForms) ? 
                 DataFactory.listTemplate.fieldMicroForms[internalName] : null,
-            microForm = (template) ? new AboutUsMicroForm(`${field.Title} Form`, template, formValues) : null;
+            microForm = (template)
+                ? new AboutUsMicroForm(
+                    this.props.ctx,
+                    this.props.properties,
+                    `${field.Title} Form`,
+                    template, formValues,
+                    null,
+                    trim(titleValue.value)
+                )
+                : null;
 
         return microForm;
     }
@@ -2018,24 +2081,3 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
 //#endregion
 }
-
-//#region PRIVATE LOG
-/** Prints out debug messages. Decorated console.info() or console.error() method.
- * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
- */
- function LOG(...args: any[]) {
-    // is an error message, if first argument is a string and contains "error" string.
-    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-    args = ["(About-Us AboutUsForm.tsx)"].concat(args);
-
-    if (window && window.console) {
-        if (isError && console.error) {
-            console.error.apply(null, args);
-
-        } else if (console.info) {
-            console.info.apply(null, args);
-
-        }
-    }
-}
-//#endregion

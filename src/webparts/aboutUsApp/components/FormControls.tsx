@@ -1,7 +1,7 @@
 // React and MS Fabric UI controls for form fields
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
-import { assign } from 'lodash';
+import { assign, result } from 'lodash';
 // https://docs.microsoft.com/en-us/javascript/api/office-ui-fabric-react?view=office-ui-fabric-react-latest
 import { Dropdown,
     IDropdownProps,
@@ -23,15 +23,23 @@ import { Dropdown,
 import * as ReactControls from '@pnp/spfx-controls-react';
 import { ComboBoxListItemPicker, 
     DateTimePicker, 
+    FilePicker, 
     IComboBoxListItemPickerProps, 
     IDateTimePickerProps, 
+    IFilePickerProps, 
+    IFilePickerResult, 
     IListItemPickerProps, 
     IPlaceholderProps, 
     ListItemPicker } from '@pnp/spfx-controls-react';
 import { IRichTextProps, RichText } from '@pnp/spfx-controls-react/lib/RichText';
 import { PeoplePicker, PrincipalType, IPeoplePickerProps } from '@pnp/spfx-controls-react/lib/PeoplePicker';
-import { IFieldUrlValue } from './DataFactory';
+import DataFactory, { IFieldUrlValue } from './DataFactory';
 import * as AboutUsDisplay from './AboutUsDisplay';
+import { arrayListFormat, DEBUG, DEBUG_NOTRACE, IAboutUsAppWebPartProps, LOG } from '../AboutUsAppWebPart';
+import { IAboutUsAppProps } from './AboutUsApp';
+import CustomDialog from './CustomDialog';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
+import { IItem } from '@pnp/sp/items';
 
 //#region EXPORTS
 export default ReactControls;
@@ -59,7 +67,7 @@ export class ShowConfigureWebPart extends React.Component<Partial<IPlaceholderPr
 export class LoadingSpinner extends React.Component<ISpinnerProps> {
     public render(): React.ReactElement<ISpinnerProps> {
         const props = assign({
-                label: "loading...",
+                label: "Loading...",
                 ariaLive: "assertive",
                 labelPosition: "right"
             }, this.props);
@@ -159,31 +167,70 @@ export interface IUrlControlProps {
     showTextField?: boolean;
     errorMessage?: string;
     onChange?: {(url: string, text: string, id: string):void};
+
+    externalRepo?: string;
+    folderName?: string;      
+    filePickerProps?: Partial<IFilePickerProps>;
 }
-export class UrlControl extends React.Component<IUrlControlProps> {
+export interface IUrlControlState {
+    url: string;
+    text: string;
+    defaultFolderAbsolutePath?: string[];
+}
+
+export class UrlControl extends React.Component<IUrlControlProps, IUrlControlState> {
+    constructor(props) {
+        super(props);
+
+        const urlValue = this.props.defaultValue ? this.props.defaultValue.Url : null,
+            textValue = this.props.defaultValue ? this.props.defaultValue.Description : urlValue,
+            defaultFolderAbsolutePath = [this.props.filePickerProps.context.pageContext.web.absoluteUrl];
+        
+        // add external repo as the file picker default location
+        if (this.props.filePickerProps && this.props.externalRepo) {
+            defaultFolderAbsolutePath.push(this.props.externalRepo.split("/").pop());
+        }
+
+
+        this.state = {
+            url: urlValue,
+            text: textValue,
+            defaultFolderAbsolutePath: defaultFolderAbsolutePath
+        };
+    }
     public render(): React.ReactElement<IUrlControlProps> {
         const showTextField = typeof this.props.showTextField === "boolean" ? this.props.showTextField : true ,
-            urlValue = this.props.defaultValue ? this.props.defaultValue.Url : null,
-            textValue = this.props.defaultValue ? this.props.defaultValue.Description : urlValue,
             onChange = this.props.onChange ? evt => {
                 const isUrl = evt.target.id === this.props.id,
+                    key: string = (isUrl) ? "url" : "text",
                     value = evt.target.value;
+                    
+                this.setState({...this.state, [key]: value});
 
-                this.props.onChange.call(this.props.onChange, value, (isUrl)?"url":"text", this.props.id);
+                this.props.onChange(value, key, this.props.id);
             } : null,
             urlProps: ITextFieldProps = {
                 type: "url",
                 id: this.props.id,
                 className: `FormControlsUrlValue ${this.props.className || ""}`,
                 label:  this.props.label,
-                defaultValue: urlValue,
+                value: this.state.url,
                 required: this.props.required,
                 disabled: this.props.disabled,
                 placeholder: "https://...",
-
+                
                 onChange: onChange
             },
-            textProps: ITextFieldProps = {};
+            textProps: ITextFieldProps = {},
+            filePickerProps: IFilePickerProps = (this.props.filePickerProps)
+                ? assign({
+                    defaultFolderAbsolutePath: this.state.defaultFolderAbsolutePath.join("/"),
+                    onSave: this.filePicker_onSave.bind(this), // need to handle uploads
+                    onChange: this.filePicker_onChange.bind(this),
+                    buttonLabel: "Select a File",
+                    buttonIcon: "FileImage",
+                }, this.props.filePickerProps) as IFilePickerProps
+                : null;
 
         if (showTextField) {
             // show both URL and Text fields, populate properties for text field
@@ -191,7 +238,7 @@ export class UrlControl extends React.Component<IUrlControlProps> {
             textProps.id = this.props.id + "_text";
             textProps.className = `FormControlsTextValue ${this.props.className || ""}`;
             textProps.label = `Text for: ${ this.props.label || "Url"}`;
-            textProps.defaultValue = textValue;
+            textProps.value = this.state.text;
             textProps.description = this.props.description;
             textProps.placeholder = "(Optional) Alternative text";
             textProps.errorMessage = this.props.errorMessage;
@@ -206,9 +253,105 @@ export class UrlControl extends React.Component<IUrlControlProps> {
             <FieldWrapper>
                 { React.createElement(TextField, urlProps) }
                 { showTextField ? React.createElement(TextField, textProps) : null }
+                { filePickerProps ? React.createElement(FilePicker, filePickerProps) : null }
            </FieldWrapper>
         );
     }
+
+    public async componentDidMount() {
+        // ensure external repo folder exists
+        if (this.props.filePickerProps && this.props.externalRepo && this.props.folderName) {
+            const exists = await DataFactory.ensureFolder(this.props.externalRepo, this.props.folderName);
+            if (exists) {
+                const defaultFolderAbsolutePath = [...this.state.defaultFolderAbsolutePath];
+                defaultFolderAbsolutePath.push(this.props.folderName);
+                this.setState({"defaultFolderAbsolutePath": defaultFolderAbsolutePath});
+            }
+        }
+    }
+
+    //#region FILE PICKER
+    private updateFields(item: IFilePickerResult) {
+        const url = item.fileAbsoluteUrl,
+            text = item.fileName;
+
+        // if no url, item  may need to be uploaded.
+        if (!url) return;
+
+        this.setState({
+            url: url,
+            text: text
+        });
+
+        this.props.onChange(url, "url", this.props.id);
+        this.props.onChange(text, "text", this.props.id);
+    }
+
+    private async uploadItem(item: IFilePickerResult): Promise<IItem> {
+        const file = await item.downloadFileContent();
+        let uploadedItem: IItem = null;
+
+        // invalid file type
+        if (this.props.filePickerProps.accepts && this.props.filePickerProps.accepts.length > 0) {
+            if (this.props.filePickerProps.accepts.indexOf(file.name.toLowerCase().split(".").pop()) === -1) {
+                // not accepted file type
+                await CustomDialog.alert(
+                    `Unable to upload file. Allowed types: ${arrayListFormat(this.props.filePickerProps.accepts, ", ", " or ")}`,
+                    "Invalid file type");
+
+                return uploadedItem;
+            }
+        }
+
+        // only upload files that are 5MBs or lower
+        if (file.size <= 5500000) {
+            uploadedItem = await DataFactory.uploadFile(this.props.externalRepo, file, this.props.folderName);
+                
+        } else {
+            // too large
+            await CustomDialog.alert("Unable to upload file. Image size must be less than 5 MBs.", "File too large");
+        }
+
+        return uploadedItem;
+    }
+
+    private filePicker_onChange(items: IFilePickerResult[]) {
+        // the URL field can only accept one item
+        const item = (items && items.length > 0) ? items[0] : null;
+        if (item) this.updateFields(item);
+    }
+
+    private async filePicker_onSave(items: IFilePickerResult[]) {
+        // external repo not set up
+        if (!this.props.externalRepo) {
+            return await CustomDialog.alert("Administrators haven not configured the external repository.", "Unable to upload file");
+        }
+
+        // no file was selected
+        if (!items || items.length === 0) return;
+
+        // parse selected file
+        items.forEach( async (item) => {
+            // if item already has a URL, item is already uploaded.
+            if (item.fileAbsoluteUrl) return this.updateFields(item);
+
+            // upload this file
+            const uploadItem = await this.uploadItem(item);
+            if (uploadItem) {
+                item.fileAbsoluteUrl = (new URL((uploadItem as Record<string, any>).ServerRelativeUrl, location.origin)).href;
+                item.fileName = (uploadItem as Record<string, any>).Name;
+
+                this.updateFields(item);
+                
+            } else {
+                // something went wrong with the upload
+                await CustomDialog.alert("Unable to upload file. View console for more details.", "ERROR!");
+            }
+
+        });
+    }
+    //#endregion
+
 }
 //#endregion
 
@@ -510,28 +653,6 @@ export class CustomControlKeywords extends React.Component<ICustomControlKeyword
                 </div>
             </FieldWrapper>
         );
-    }
-}
-//#endregion
-
-
-//#region PRIVATE LOG
-/** Prints out debug messages. Decorated console.info() or console.error() method.
- * @param args Message or object to view in the console. If message starts with "ERROR", DEBUG will use console.error().
- */
- function LOG(...args: any[]) {
-    // is an error message, if first argument is a string and contains "error" string.
-    const isError = (args.length > 0 && (typeof args[0] === "string")) ? args[0].toLowerCase().indexOf("error") > -1 : false;
-    args = ["(About-Us FormControls.tsx)"].concat(args);
-
-    if (window && window.console) {
-        if (isError && console.error) {
-            console.error.apply(null, args);
-
-        } else if (console.info) {
-            console.info.apply(null, args);
-
-        }
     }
 }
 //#endregion
