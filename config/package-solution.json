@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
-    "name": "aboutus-react-client-side-solution",
+    "name": "About-Us App",
     "id": "ea20c962-0382-4f17-ae89-e02ab7d9c163",
-    "version": "1.0.0.0",
+    "version": "1.0.0.1",
     "includeClientSideAssets": true,
-    "isDomainIsolated": true,
+    "isDomainIsolated": false,
     "developer": {
-      "name": "Duane Tsuchiyama",
+      "name": "USSTRATCOM J6 - Duane Tsuchiyama",
       "websiteUrl": "",
       "privacyUrl": "",
       "termsOfUseUrl": "",

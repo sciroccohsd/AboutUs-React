@@ -10,9 +10,7 @@ import {
     PropertyPaneButton,
     PropertyPaneButtonType,
     PropertyPaneCheckbox,
-    PropertyPaneChoiceGroup,
     PropertyPaneDropdown,
-    PropertyPaneDropdownOptionType,
     PropertyPaneHorizontalRule,
     PropertyPaneLabel,
     PropertyPaneLink,
@@ -20,7 +18,7 @@ import {
     PropertyPaneToggle
 } from '@microsoft/sp-property-pane';
 import { PropertyFieldNumber } from '@pnp/spfx-property-controls/lib/PropertyFieldNumber';
-import { PropertyFieldFilePicker, IPropertyFieldFilePickerProps, IFilePickerResult } from "@pnp/spfx-property-controls/lib/PropertyFieldFilePicker";
+import { PropertyFieldFilePicker, IFilePickerResult } from "@pnp/spfx-property-controls/lib/PropertyFieldFilePicker";
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 
 import * as strings from 'AboutUsAppWebPartStrings';
@@ -82,7 +80,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
     // Processing... modal message properties.
     private modalMsg_processing = [
-        '**WARNING** DO NOT CLOSE THIS TAB!\n\nThis message will disappear when the process has been completed.',
+        '**WARNING** DO NOT CLOSE THIS TAB!\n\nThis message will disappear when the process has been completed. The process could take a few minutes.',
         'Processing...'
     ];
 //#endregion
@@ -147,16 +145,17 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
      * Update properties that affect the display.
      * @param properties Key/value pair of property(s) that changed. Properties that affects the display.
      */
-    private async updateRenderProperty(propertyName?: "listName" | "displayType", value?: any, renderNow: boolean = true): Promise<void> {
+    private async updateRenderProperty(propertyName?: "listName" | "displayType", value?: string, renderNow: boolean = true): Promise<void> {
         
         switch (propertyName) {
         
             case "listName":
-                this.properties.listName = <string>value;
+                await this.list_.ensureList(value);
+                this.properties.listName = value;
                 break;
 
             case "displayType":
-                this.properties.displayType = <string>value;
+                this.properties.displayType = value;
                 break;
 
         }
@@ -246,7 +245,8 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
      * @param oldValue Previous value
      * @param newValue New value
      */
-     public async onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any) {
+    public async onPropertyPaneFieldChanged(propertyPath: string, oldValue: any, newValue: any) {
+        const _this = this;
         this.propertyPane_.propertyChanged = true;
 
         // do something based on which property (propertyPath) changed
@@ -258,7 +258,13 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
             case "ppListName_dropdown":  // select a list dropdown changed
                 
-                if (newValue === "") return;
+                if (newValue === "__null") {
+                    await this.updateRenderProperty("listName", "");
+                    this.properties.ppListName_dropdown = newValue;
+                    this.propertyPane_.showPickListMenu = true;
+                    this.context.propertyPane.refresh();
+                    return;
+                }
 
                 // show warning. we need to ensure the 'About-Us' list properties and fields are set/available
                 CustomDialog.confirm(
@@ -272,34 +278,38 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
 
                         // 'continue'?
                         if (response === true) {
-                            const modalMsg = CustomDialog.modalMsg.apply(null, this.modalMsg_processing);
-                            this.list_.ensureList(newValue).then( () => {
-                                this.updateRenderProperty("listName", newValue);
-                                this.properties.ppListName_dropdown = newValue;
-                                this.propertyPane_.showPickListMenu = false;
-                                this.context.propertyPane.refresh();
+                            const modalMsg = CustomDialog.modalMsg.apply(null, _this.modalMsg_processing);
+                            _this.list_.ensureList(newValue).then( async () => {
+                                await _this.updateRenderProperty("listName", newValue);
+                                _this.properties.ppListName_dropdown = newValue;
+                                _this.propertyPane_.showPickListMenu = false;
+                                _this.context.propertyPane.refresh();
                                 modalMsg.close();
 
                             }).catch( er => {
                                 modalMsg.close();
                                 LOG(`ERROR! Unable to check or update '${ newValue }' list with About-Us properties & fields.`, er);
                                 CustomDialog.alert("Something went wrong! See the console for details.", "ERROR").then( () => {
-                                    this.properties.ppListName_dropdown = "";
-                                    this.propertyPane_.showPickListMenu = true;
-                                    this.context.propertyPane.refresh();
+                                    _this.properties.ppListName_dropdown = oldValue;
+                                    _this.propertyPane_.showPickListMenu = true;
+                                    _this.context.propertyPane.refresh();
                                 });
 
                             });
 
                         } else {
                             // cancelled
-                            this.properties.ppListName_dropdown = "";
-                            this.propertyPane_.showPickListMenu = true;
-                            this.context.propertyPane.refresh();
+                            _this.properties.ppListName_dropdown = oldValue;
+                            _this.propertyPane_.showPickListMenu = true;
+                            _this.context.propertyPane.refresh();
 
                         }
                     });
 
+                break;
+
+            case "externalRepo":
+                if (newValue === "__null") this.properties.externalRepo = "";
                 break;
         
             case "ownerGroup": // list permissions updated
@@ -540,7 +550,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             // label: Select a list
             group.groupFields.push(
                 PropertyPaneLabel("lblUpdateDescription", {
-                    text: "Updating the list will try to update the current list with properties from the About-Us list template."
+                    text: "'Update Now!' will try to update the current list with properties from the About-Us list template."
                 })
             );
 
@@ -559,7 +569,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             );
 
         } else {    // show pick-a-list menu
-            group.groupName = "Initialize or Select List";
+            group.groupName = "Initialize or select an existing list";
 
             // button: Create List
             group.groupFields.push(
@@ -863,6 +873,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         try {
             await this.list_.ensureList(newListName, true, true, true, true);
             this.setExistingRoles();
+            this.properties.ppListName_dropdown = newListName;
             await this.updateRenderProperty("listName", newListName);
             this.propertyPane_.showPickListMenu = false;    // show update list menu
 
@@ -968,7 +979,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 this.propertyPane_.data.optListNames = names.map(name => { return {key: name, text: name}; });
 
                 // add a blank option
-                this.propertyPane_.data.optListNames.unshift({key: "", text: "-"});
+                this.propertyPane_.data.optListNames.unshift({key: "__null", text: "-"});
                 
             }
         } catch (er) {
@@ -989,7 +1000,7 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 this.propertyPane_.data.optLibraryNames = data.map(library => { return {key: library.ServerRelativeUrl, text: library.Title}; });
 
                 // add a blank option
-                this.propertyPane_.data.optLibraryNames.unshift({key: "", text: "-"});
+                this.propertyPane_.data.optLibraryNames.unshift({key: "__null", text: "-"});
                 
             }
         } catch (er) {

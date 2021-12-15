@@ -13,8 +13,6 @@ import { Dropdown,
     Stack,
     IStackTokens,
     IStackStyles,
-    ILinkProps,
-    ITextField,
     ITextFieldProps} from 'office-ui-fabric-react';
 import CustomDialog from './CustomDialog';
 import DataFactory, { IAboutUsMicroFormField } from './DataFactory';
@@ -192,15 +190,6 @@ export class MicroForm extends React.Component<IMicroFormProps, IMicroFormState>
                 disabled: field.disabled || false,
                 styles: field.styles || { root: {"min-width": "400px"} },
                 className: field.className || ""
-            },
-            picker_onChange = (results: (IFilePickerResult | IFilePickerResult[])) => {
-                DEBUG_NOTRACE("MicroFormControl > TextFieldControl > FilePicker:", results);
-
-                const result = (results && results instanceof Array && results.length > 0) ? results[0] : results as IFilePickerResult;
-
-                const url = result.fileAbsoluteUrl;
-
-                this.onChange_control(field, url);
             },
             filePickerProps: IFilePickerProps = (field.filePickerProps)
                 ? assign({
@@ -431,7 +420,11 @@ export default class AboutUsMicroForm extends CustomDialog {
 
     private microForm_stateUpdated(state: IMicroFormState) {
         let formValues = assign({}, state);
+
+        // remove state properties that are not field value properties.
         delete formValues.errorMessage;
+        delete formValues.defaultFolderAbsolutePath;
+        
         this.formValues = formValues;
     }
 //#endregion

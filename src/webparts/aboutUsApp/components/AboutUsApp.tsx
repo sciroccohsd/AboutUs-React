@@ -1,13 +1,11 @@
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
-import { find, trim, escape, assign } from 'lodash';
 
-import { BaseWebPartContext, WebPartContext } from '@microsoft/sp-webpart-base';
-import { Form } from '@pnp/sp/forms';
+import { WebPartContext } from '@microsoft/sp-webpart-base';
 
 import DataFactory from './DataFactory';
 import * as FormControls from './FormControls';
-import AboutUsForm, { IAboutUsFormProps } from "./AboutUsForm";
+import AboutUsForm from "./AboutUsForm";
 import { DEBUG, DEBUG_NOTRACE, IAboutUsAppWebPartProps, LOG } from '../AboutUsAppWebPart';
 import AboutUsDisplay from './AboutUsDisplay';
 
@@ -56,8 +54,8 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
     }
 
     public render(): React.ReactElement<IAboutUsAppProps> {
-        DEBUG_NOTRACE("this.state:", this.state);
-        DEBUG_NOTRACE("this.props.lists:", this.props.list);
+        // DEBUG_NOTRACE("this.state:", this.state);
+        // DEBUG_NOTRACE("this.props.lists:", this.props.list);
 
         return (
             <div className={styles.aboutUsApp}>
@@ -134,7 +132,6 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
     }
 //#endregion
 
-
 //#region DISPLAY CHANGES
     private changeDisplayType(displayType: string) {
         // don't change view if the display type didn't change
@@ -167,13 +164,15 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
             url = href.toString();
         }
 
-        this.setState({...this.state, "itemId": id}, () => {
+        //this.setState({"itemId": id}, () => {
             if (replaceState === true) {
                 history.replaceState(this.state, document.title || title, url);
             } else {
                 history.pushState(this.state, document.title || title, url);
             }
-        });
+        //});
+        this.setState({"itemId": id});
+
     }
 
     private window_onpopstate(evt) {

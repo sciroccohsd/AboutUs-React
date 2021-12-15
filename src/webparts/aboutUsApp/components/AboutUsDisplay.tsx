@@ -1,7 +1,7 @@
 // About-Us data display elements.
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
-import { assign, trim } from 'lodash';
+import { assign, find, trim } from 'lodash';
 import * as moment from 'moment';
 
 // https://docs.microsoft.com/en-us/javascript/api/office-ui-fabric-react?view=office-ui-fabric-react-latest
@@ -12,7 +12,6 @@ import { ActionButton, CommandBar, DirectionalHint,
     ICommandBarStyles,
     IconButton,
     ITooltipProps, 
-    Spinner, 
     TooltipHost} from 'office-ui-fabric-react';
 
 //> npm install react-easy-sort
@@ -22,10 +21,7 @@ import { Wrapper } from './AboutUsApp';
 import DataFactory, { IDataStructureItem, IUserPermissions } from './DataFactory';
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { ISiteUserInfo } from '@pnp/sp/site-users/types';
-import { UserCustomActions } from '@pnp/sp/user-custom-actions/types';
-import { IActionProps } from '@pnp/spfx-controls-react';
 import { ISearchResult } from '@pnp/sp/search';
-import { IComponentStyles } from '@uifabric/foundation';
 import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormControls';
 
 
@@ -620,45 +616,50 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
     class breadcrumbItem extends React.Component<IBreakcrumbItemProps> {
         public render(): React.ReactElement<IBreakcrumbItemProps> {
             const css = [ styles.breadcrumbItem ],
-                isLink = (this.props.item.DisplayType.indexOf(this.props.displayType) > -1),
+                isLink = true, //sourceContainsAny(this.props.item.DisplayType, ["_orgType"]),
                 url = new URL(location.href || ""),
                 urlParams = url.searchParams,
                 _onClick = (evt) => {
                     evt.preventDefault();
-                    this.props.onClick(this.props.item.ID);
+                    
+                    if (this.props.item.DisplayType.indexOf("_orgType") > -1) {
+                        const id = (this.props.item.children && this.props.item.children.length > 0) ? this.props.item.children[0].ID : null;
+                        if (id) this.props.onClick(id);
+                    } else {
+                        this.props.onClick(this.props.item.ID);
+                    }
                     return false;
                 };
 
             if (this.props.className) css.push(this.props.className);
             urlParams.set(this.props.properties.urlParam, this.props.item.ID.toString());
 
-            return (this.props.displayAll || isLink) ?
-            <li className={ css.join(" ") }>
+            return <li className={ css.join(" ") }>
                 <Wrapper
                     condition={ isLink }
-                    wrapper={ children => <a href={ url.toString() } className={ styles.breadcrumbText } onClick={ _onClick }>{children}</a> }
+                    wrapper={ children => <a href={ url.toString() } className={ styles.breadcrumbText } onClick={ _onClick } data-interception="off">{children}</a> }
                     else={ children => <div className={ styles.breadcrumbText }>{children}</div> }
                 >
                     { this.props.text }
                 </Wrapper>
                 { this.props.children }
-            </li>
-            : null ;
+            </li>;
         }
     }
 
     class breadcrumbSubmenu extends React.Component<IBreadcrumbSubmenuProps> {
         public render(): React.ReactElement<IBreadcrumbSubmenuProps> {
-            const items = this.generateChildrenList();
+            const items = this.generateChildrenList(),
+                classNames = ["breadcrumbSubmenu", styles.subBreadcrumbContainer];
 
             return (items.length > 0) ?
-                <div className={ styles.subBreadcrumbContainer }>
+                <div className={ classNames.join(" ") }>
                     <ul className={ styles.subBreadcrumbList }>
                         {
                             items.map(item => React.createElement(breadcrumbItem, {
                                 properties: this.props.properties,
                                 item: item,
-                                text: `${item.Title} - ${item.Name}`,
+                                text: item.Title + ((item.Name) ? " - " + item.Name : ""),
                                 displayType: this.props.displayType,
                                 onClick: this.props.onClick,
                                 className: styles.subBreadcrumbItem })
@@ -670,20 +671,29 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
         }
 
         private generateChildrenList(): IDataStructureItem[] {
-            const allowedTypes = [this.props.displayType, "_orgType"],
-                ignoreList = (this.props.ignoreItems) ? this.props.ignoreItems : [],
-                _items = [];
+            const allowedTypes = ["_orgType"],
+                ignoreList = (this.props.ignoreItems) ? this.props.ignoreItems : [];
+            let _items = [];
 
             this.props.items.forEach(item => {
                 // does item contain any of the allowed types && not on the ignore list
-                if (sourceContainsAny(item.DisplayType, allowedTypes) && ignoreList.indexOf(item.ID) === -1) {
+                //if (sourceContainsAny(item.DisplayType, allowedTypes) && ignoreList.indexOf(item.ID) === -1) {
+                    if (item.DisplayType.indexOf("_orgType") > -1) {
+                        // this item is an OrgType (HQ, Task Force, Component, LNO, Other...)
+                        // don't show item if it doesn't have a child
+                        if (!item.children || item.children.length === 0) {
+                            return;
+                        }
+                    }
                     _items.push(item);
-                }
+                //}
             });
+
+            // sort
+            _items.sort((a, b) => { return a.OrderBy - b.OrderBy; });
 
             return _items;
         }
-
         
     }
 
@@ -697,20 +707,25 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                         <ul className={ styles.topBreadcrumbList }>
                             {
                                 topItems.map((item, i) => {
-                                    const nextItem = (i < topItems.length - 1) ? topItems[i + 1] : null;
+                                    const nextItem = (i < topItems.length - 1) ? topItems[i + 1] : null,
+                                    classNames = [styles.topBreadcrumbItem],
+                                    hasChildren = this.hasChildren(item.children, nextItem, this.props.displayType);
 
-                                    return React.createElement(breadcrumbItem, {
-                                        properties: this.props.properties,
-                                        item: item,
-                                        text: item.Title,
-                                        displayType: this.props.displayType,
-                                        className: styles.topBreadcrumbItem,
-                                        displayAll: true,
-                                        onClick: this.props.onClick },
+                                    if (hasChildren) classNames.push(styles.hasSubmenu);
 
+                                    return React.createElement(breadcrumbItem,
+                                        {
+                                            properties: this.props.properties,
+                                            item: item,
+                                            text: item.Title,
+                                            displayType: this.props.displayType,
+                                            className: classNames.join(" "),
+                                            displayAll: true,
+                                            onClick: this.props.onClick
+                                        },
                                         React.createElement(breadcrumbSubmenu, {
                                             properties: this.props.properties,
-                                            ignoreItems: (nextItem) ? [nextItem.ID] : null,
+                                            ignoreItems: (nextItem && nextItem.ID !== 0) ? [nextItem.ID] : null,
                                             items: item.children,
                                             displayType: this.props.displayType,
                                             onClick: this.props.onClick,
@@ -741,6 +756,30 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
 
             return items;
         }
+
+        private hasChildren(children: IDataStructureItem[], nextItem: IDataStructureItem, displayType: string): boolean {
+            const allowedTypes = [displayType, "_orgType"],
+                ignoreList = (nextItem && nextItem.ID !== 0) ? [nextItem.ID] : [];
+
+            for (let i = 0; i < children.length; i++) {
+                const item = children[i];
+                
+                // does item contain any of the allowed types && not on the ignore list
+                //if (sourceContainsAny(item.DisplayType, allowedTypes) && ignoreList.indexOf(item.ID) === -1) {
+                    if (item.DisplayType.indexOf("_orgType") > -1) {
+                        // this item is an OrgType (HQ, Task Force, Component, LNO, Other...)
+                        // show item if it has a child
+                        if (item.children && item.children.length > 0) {
+                            return true;
+                        }
+                    } else {
+                        return true;
+                    }
+                //}
+            }
+
+            return false;
+        }
     }
     //#endregion
 //#endregion
@@ -753,6 +792,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
     }
     interface IContentManagersDisplayState {
         owners: ISiteUserInfo[];
+        emails: string[];
     }
     
     export class ContentManagersDisplay extends React.Component<IContentManagersDisplayProps, IContentManagersDisplayState> {
@@ -760,7 +800,8 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             super(props);
 
             this.state = {
-                owners: []
+                owners: [],
+                emails: []
             };
         }
 
@@ -772,7 +813,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                 <>
                     { (this.props.users && this.props.users.length > 0) ?
                         <ul className={ styles.contentManagersList }>
-                            { this.props.users.map(user => <li>{this.mailTo(user)}</li>) }
+                            {(this.state.emails.length > 0) ? this.props.users.map(user => <li>{this.mailTo(user)}</li>) : null }
                         </ul> : null
                     }
                     <div className={ styles.contentManagersMessage }>
@@ -782,12 +823,42 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
         }
 
         public async componentDidMount() {
-            if (this.props.ownerGroupID) {
-                // get owners
-                const owners = await DataFactory.getSiteGroupMembers(this.props.ownerGroupID);
+            let owners = [],
+                emails = [];
 
-                this.setState({"owners": owners});
+            if (this.props.ownerGroupID) {
+                owners = await DataFactory.getSiteGroupMembers(this.props.ownerGroupID);
             }
+
+            if (this.props.users && this.props.users.length > 0) {
+                emails = await this.getContentManagersEmails(this.props.users);
+            }
+
+            this.setState({
+                "owners": owners,
+                "emails": emails
+            });
+        }
+
+        private async getContentManagersEmails(users: IUserInfo[]): Promise<string[]> {
+            const emails = [],
+                promises = (users && users.length) 
+                ? users.map(user => DataFactory.getUserById(user.ID))
+                : null ;
+
+            if (promises) {
+                const responses = await Promise.all(promises);
+
+                responses.forEach(userInfo => {
+                    if (userInfo.Email) {
+                        const user = find(users, {"ID": userInfo.Id});
+                        if (user) user.EMail = userInfo.Email;
+                        emails.push(userInfo.Email);
+                    }
+                });
+            }
+
+            return emails;
         }
 
         private generateContentManagersMailToLink(): string {
@@ -801,7 +872,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             // add user emails to list
             if (this.props.users && this.props.users.length > 0) {
                 this.props.users.forEach(user => {
-                    if (user.EMail) users.push(user.EMail);
+                   if (user.EMail) users.push(user.EMail);
                 });
             }
 
@@ -1136,7 +1207,7 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
         url.searchParams.set(this.props.properties.urlParam, id.toString());
 
         return (item) ? <li className={ styles.searchResult }>
-                <a href={ url.toString() } onClick={ _onClick }>{ `${item.Title} - ${item.Name}` }</a>
+                <a href={ url.toString() } onClick={ _onClick } data-interception="off">{ `${item.Title} - ${item.Name}` }</a>
             </li> : null;
     }
 
@@ -1290,10 +1361,6 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
 
         // initialize state with item data
         const item = await this.getItem(this.props.itemId);
-
-        DEBUG_NOTRACE("structure:", this.structure);
-        DEBUG_NOTRACE("permissions:", permissions);
-        DEBUG_NOTRACE("item:", item);
     }
     //#endregion
 
@@ -1301,7 +1368,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
     private defaultDisplayTemplate(): React.ReactElement {
         return <div className={ styles.defaultPageLayout }>
             { this.displayAppMessaage(this.props.properties.appMessage, this.props.properties.appMessageIsAlert) }
-            { this.displayMenu() }
+            { this.displayMenu(false) }
 
             <div className={ styles.headerSection }>
                 { this.displayLogo(this.state.Logo) }
@@ -1310,34 +1377,39 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
                 { this.displayHeaderTitle(this.state.Title, this.state.Name, this.state.Description) }
             </div>
 
-            <div className={ styles.bodySection }>
-                { this.displayMission(this.state.Mission) }
-                { this.displayTasks(this.state.Tasks) }
-                { this.displayContent(this.state.Content) }
-                { this.displaySubContent(this.state.SubContent) }
-                { this.displayKeywords(this.state.Keywords, "", true) }
-                { this.displayLinks(this.state.Links, "", true) }
-                { this.displayContacts(this.state.Contacts, "", true) }
-            </div>
+            { (this.state.DisplayType && this.state.DisplayType.indexOf(PageDisplay.type) > -1) ? 
+                <>
+                    <div className={ styles.bodySection }>
+                        { this.displayMission(this.state.Mission) }
+                        { this.displayTasks(this.state.Tasks) }
+                        { this.displayContent(this.state.Content) }
+                        { this.displaySubContent(this.state.SubContent) }
+                        { this.displayKeywords(this.state.Keywords, "", true) }
+                        { this.displayLinks(this.state.Links, "", true) }
+                        { this.displayContacts(this.state.Contacts, "", true) }
+                    </div>
 
-            <div className={ styles.sideSection }>
-                { this.displayBios(this.state.Bios) }
-                { this.displaySOP(this.state.SOP, "", true) }
-                { this.displayOfficeInfoBlock(
-                    this.state.Location,
-                    this.state.Address,
-                    this.state.Phone,
-                    this.state.DSN,
-                    this.state.FAX,
-                    this.state.SignatureBlock,
-                    true
-                ) }
-            </div>
+                    <div className={ styles.sideSection }>
+                        { this.displayBios(this.state.Bios) }
+                        { this.displaySOP(this.state.SOP, "", true) }
+                        { this.displayOfficeInfoBlock(
+                            this.state.Location,
+                            this.state.Address,
+                            this.state.Phone,
+                            this.state.DSN,
+                            this.state.FAX,
+                            this.state.SignatureBlock,
+                            true
+                        ) }
+                    </div>
 
-            <div className={ styles.footerSection }>
-                { this.displayContentManagers(this.state.ContentManagers, "", true) }
-                { this.displayPageValidation(this.state.Validated, this.state.ValidatedBy) }
-            </div>
+                    <div className={ styles.footerSection }>
+                        { this.displayContentManagers(this.state.ContentManagers, "", true) }
+                        { this.displayPageValidation(this.state.Validated, this.state.ValidatedBy) }
+                    </div>
+                </>
+                : <div className={ styles.bodySection }>This About-Us page is not availble.</div>
+            }
         </div>;
     }
     //#endregion
@@ -1803,7 +1875,8 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
         }
 
         // finally, was item found
-        if (item && "DisplayType" in item && item.DisplayType.indexOf(PageDisplay.type) > -1) {
+        //if (item && "DisplayType" in item && item.DisplayType instanceof Array && item.DisplayType.indexOf(PageDisplay.type) > -1) {
+        if (item) {
             initState.dataStatus = "ready";
 
             // keep track of retrieved items

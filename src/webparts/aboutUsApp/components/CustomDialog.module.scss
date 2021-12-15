@@ -3,10 +3,17 @@
 $font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
 
 .customDialog {
+    border-radius: 0 0 3px 3px;
     flex-grow: 1;
     overflow-y: hidden;
 
+    &:empty {
+        display: none !important;
+    }
+
     .header {
+        border-top: 3px solid;
+        border-color: "[theme: EmphasisBorder, default:#025c5f]";
         position: relative;
         width: 100%;
         box-sizing: border-box;
@@ -16,7 +23,7 @@ $font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-sys
             -webkit-font-smoothing: antialiased;
             font-size: 20px;
             font-weight: 600;
-            color: "[theme: black, default: #000000]";
+            color: "[theme: AccentText, default:#03787c]";
             margin: 0px;
             min-height: "[theme: xLargeFontSize, default: 20px]";
             padding: 16px 46px 20px 24px;
@@ -61,7 +68,7 @@ $font-family: 'Segoe UI', 'Segoe UI Web (West European)', 'Segoe UI', -apple-sys
                 font-size: 14px;
                 font-weight: 400;
                 margin: 0px 0px 24px;
-                color: "[theme: black, default: #000000]";
+                color: "[theme: HeaderSubtleText, default:#8a8886]";
                 line-height: 1.5;
                 overflow-wrap: break-word;
                 white-space: pre;

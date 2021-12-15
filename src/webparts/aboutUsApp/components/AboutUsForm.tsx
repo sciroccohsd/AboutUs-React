@@ -2,6 +2,7 @@
 import * as React from 'react';
 import styles from './AboutUsApp.module.scss';
 import { find, trim, escape, assign } from 'lodash';
+import * as moment from 'moment';
 import * as strings from 'AboutUsAppWebPartStrings';
 import { WebPartContext, BaseWebPartContext } from '@microsoft/sp-webpart-base';
 
@@ -27,7 +28,7 @@ import { DateConvention, TimeConvention, TimeDisplayControlType } from '@pnp/spf
 import { IItemAddResult, IItemUpdateResult, _Items } from '@pnp/sp/items/types';
 import { PermissionKind } from '@pnp/sp/security';
 import "@pnp/sp/security";
-import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption, isInRange_numDays, sleep, LOG } from '../AboutUsAppWebPart';
+import { IAboutUsAppWebPartProps, IAboutUsAppFieldOption, isInRange_numDays, sleep, LOG, DEBUG_NOTRACE } from '../AboutUsAppWebPart';
 import { ISiteUserInfo } from '@pnp/sp/site-users/types';
 
 //#region INTERFACES, TYPES & ENUMS
@@ -163,9 +164,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
             this.listItem = await this.props.list.getItemById_expandFields(this.props.itemId);
 
-            // debug
-            LOG("this.listItem:", this.listItem);
-
             // check to see if an item exists
             if (this.listItem !== null) {
                 this.setState({"display": DISPLAY_STATE.ready});
@@ -281,6 +279,10 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
             case "Logo":
                 // url field with file picker
+                if (!valueState.value || typeof valueState.value !== "object") {
+                    valueState.value = this.createValueState_UrlValue(valueState.value);
+                }
+
                 return this.customFieldLogo(field, valueState);
 
             case "Validated": 
@@ -709,7 +711,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
     private customFieldLogo(field: IDataFactoryFieldInfo, valueState: IAboutUsValueState): React.ReactElement {
         const fieldOption = this.getFieldWebPartOptions_by_InternalName(field.InternalName),
             titleValue = this.getValueState_by_InternalName("Title"),
-            siteUrl = this.props.ctx.pageContext.web.absoluteUrl,
             externalRepo = this.props.properties.externalRepo || "",
             props: FormControls.IUrlControlProps = {
                 disabled: valueState.disabled,
@@ -724,7 +725,6 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
                 onChange: this.urlfield_onChange.bind(this),
 
-                //uploadFolder: (externalRepo) ? [externalRepo, folderName].join("/") : "",
                 externalRepo: externalRepo,
                 folderName: trim(titleValue.value),
                 filePickerProps: {
@@ -1047,6 +1047,9 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             }
         }
 
+        // add field to modifed list
+        this.fieldWasModified(internalName);
+
         // save value to value state
         valueState.value.control.push(value);
         valueState.value.sp = JSON.stringify(valueState.value.control);
@@ -1204,15 +1207,16 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
      * @returns Error message or null
      */
     private validateDate(value: string | Date, isRequired: boolean = false, min?: Date, max?: Date): string {
-        const date = (typeof value === "string" || value instanceof Date) ? new Date(value as any) : null ,
-            length = date ? date.toISOString().length : 0;
+        const date = (value && (typeof value === "string" || value instanceof Date)) ? new Date(value as any) : null ,
+            length = (date && moment.isDate(date)) ? date.toISOString().length : 0;
 
         if (isRequired && length === 0) return "Required.";
 
-        if (min instanceof Date && date < min) return `Not valid. Minimum date is ${min.toLocaleString()}.`;
-        
-        if (max instanceof Date && date > max) return `Not valid. Maximum date is ${max.toLocaleString()}.`;
-
+        if (date && date instanceof Date) {
+            if (min instanceof Date && date < min) return `Not valid. Minimum date is ${min.toLocaleString()}.`;
+            
+            if (max instanceof Date && date > max) return `Not valid. Maximum date is ${max.toLocaleString()}.`;
+        }
         return null;
     }
 
@@ -1329,14 +1333,41 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         this.setState({"isProcessingForm": true});
 
-        // show modal
+        const _getSPValueFromValueState = (valueState, field) => {
+            let value = null,
+                temp = null;
 
-        const _getSPValueFromValueState = valueState => {
-            if (valueState.value !==  null && typeof valueState.value === "object" && "sp" in valueState.value) {
-                return valueState.value.sp;
-            } else {
-                return valueState.value;
+            if (typeof valueState.value === "number") return valueState.value;
+
+            switch (field["odata.type"]) {
+                case "SP.FieldDateTime":
+                    if (valueState.value) {
+                        if (typeof valueState.value === "string") return valueState.value;
+                        if (valueState.value instanceof Date) return valueState.value.toISOString();
+                    }
+                    break;
+
+                case "SP.FieldUrl":
+                    if (valueState.value) {
+                        if (typeof valueState.value === "object" && "sp" in valueState.value) {
+                            if (valueState.value.sp.length > 0) return valueState.value.sp;
+                        }
+                    }
+                    break;
+
+                default:
+                    if (valueState.value !==  null && typeof valueState.value === "object" && "sp" in valueState.value) {
+                        value = valueState.value.sp;
+                    } else {
+                        value = valueState.value;
+                    }
+                    break;
             }
+
+            // remove empty results
+            //if (value && typeof value === "object" && "results" in value && value.results.length === 0) value = null;
+
+            return value;
         };
 
         const _getSPFieldName = internalName => {
@@ -1367,10 +1398,10 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                     valueState = this.getValueState_by_InternalName(internalName);
 
                 // check if valuestate exists.
-                if (valueState === null) continue;
+                //if (valueState === null) continue;
 
                 const field = this.getField_by_InternalName(internalName),
-                    value = _getSPValueFromValueState(valueState),
+                    value = _getSPValueFromValueState(valueState, field),
                     wasModified = this.fieldsThatHaveBeenModified.indexOf(internalName) > -1,
                     errorMessage = this.validateFieldValue(internalName, valueState.value);
 
@@ -1390,7 +1421,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             this.fieldsThatHaveBeenModified.forEach(internalName => {
                 const valueState = this.getValueState_by_InternalName(internalName),
                     field = this.getField_by_InternalName(internalName),
-                    value = _getSPValueFromValueState(valueState),
+                    value = _getSPValueFromValueState(valueState, field),
                     errorMessage = this.validateFieldValue(internalName, valueState.value);
 
                 if (errorMessage !== valueState.errorMessage) {
@@ -1532,7 +1563,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         // if null, create the value state
         if (valueState === null) {
-            valueState = this.initializeFieldValueState(field.InternalName, defaultValue || null);
+            valueState = this.initializeFieldValueState(field.InternalName, defaultValue);
 
             // keep track of newly created value states
             const key = this.valueStateKeyPrefix + internalName;
@@ -1646,7 +1677,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
         const field = this.getField_by_InternalName(internalName),
             value: {sp: any | any[], control: any | any[]} = {
-                sp: (field.AllowMultipleValues) ? {results: []} : -1,
+                sp: (field.AllowMultipleValues) ? {results: []} : null,
                 control: []
             };
 
@@ -1703,8 +1734,36 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
             if (controlValue) value.control.push(controlValue);
         }
 
+        //if (field.AllowMultipleValues && value.sp.results.length === 0) value.sp = null;
+        
         return value;
     }
+
+    /** Creates the UserData object (IAboutUsUserValue).
+     * @param value IFieldUrlValue object or string with URL or string with URL;#Description
+     * @returns IFieldUrlValue object that can be used for the URL Control and SP REST API.
+     * @example
+     * // IFieldUrlValue
+     * valueState.value = {
+     *  __metadata: {type: "SP.FieldUrlValue"},
+     *  Url: "",
+     *  Description: ""
+     * }
+     */
+    private createValueState_UrlValue(value: any): IFieldUrlValue {
+        // if already in proper format
+        if (value && typeof value === "object" && "Url" in value) return value as IFieldUrlValue;
+
+        const val: IFieldUrlValue = { __metadata: {type: "SP.FieldUrlValue"}, Url: "", Description: "" };
+        if (value && typeof value === "string" && (/^https?:/i).test(value)) {
+            const temp = value.split(";#");
+            val.Url = temp[0];
+            val.Description = (temp.length > 1) ? temp[1] : temp[0];
+        }
+
+        return val;
+    }
+
 
     /** Creates the ComplesData object (IAboutUsComplexValue)
      * @param data Stringified representation of the complex data or the complex data type itself

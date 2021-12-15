@@ -155,8 +155,9 @@
       "AllowHyperlink": false,
       "AppendOnly": false,
       "NumberOfLines": 12,
-      "RestrictedMode": true,
+      "RestrictedMode": false,
       "RichText": true,
+      "SchemaXml": "<Field Type=\"Note\" DisplayName=\"Main Content\" Description=\"General information or description about this organization. Usually static information that doesn't change frequently.\n\nRemember, it should be useful for any user looking for information about this organization.\" Required=\"FALSE\" NumLines=\"12\" RichText=\"TRUE\" StaticName=\"Content\" Name=\"Content\" RistrictMode=\"FALSE\" RichTextMode=\"FullHtml\" IsolateStyles=\"TRUE\" AppendOnly=\"FALSE\"/>",
       "WikiLinking": false
     },
     {
@@ -184,7 +185,7 @@
       "Description": "Common and useful terms used to search for this organization and it's services.",
       "InternalName": "Keywords",
       "Required": false,
-      "Title": "Responsibilities, Tags and Keywords.",
+      "Title": "Responsibilities, Tags and Keywords",
       "FieldTypeKind": 3,
       "AllowHyperlink": false,
       "AppendOnly": false,
@@ -293,7 +294,7 @@
       "Description": "Example: USSTRATCOM #\r\n901 SAC BLVD STE ### \r\nOFFUTT AFB NE 68113-6600",
       "InternalName": "Address",
       "Required": false,
-      "Title": "Office  Mailing Address",
+      "Title": "Office Mailing Address",
       "FieldTypeKind": 3,
       "AllowHyperlink": false,
       "AppendOnly": false,

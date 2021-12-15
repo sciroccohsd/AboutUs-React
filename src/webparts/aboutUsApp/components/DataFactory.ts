@@ -22,17 +22,16 @@ import { IItem, IItems } from "@pnp/sp/items";
 import { ISiteGroupInfo, ISiteGroups } from "@pnp/sp/site-groups/types";
 import { IBasePermissions, IRoleAssignmentInfo, IRoleDefinitionInfo, PermissionKind } from "@pnp/sp/security";
 import "@pnp/sp/site-users/web";
-import { ISiteUserInfo } from "@pnp/sp/site-users/types";
+import "@pnp/sp/site-users";
+import { ISiteUser, ISiteUserInfo } from "@pnp/sp/site-users/types";
 import "@pnp/sp/search";
 import { ISearchQuery, ISearchResult, Search, SearchResults } from "@pnp/sp/search";
 import { IDropdownOption, IIconProps, IStyle } from "office-ui-fabric-react";
 import { DEBUG_NOTRACE, escapeProperly, IAboutUsAppWebPartProps, LOG, sleep } from "../AboutUsAppWebPart";
 import { IFilePickerProps } from "@pnp/spfx-controls-react";
-import { Web } from "@pnp/sp/webs";
 import "@pnp/sp/files";
 import "@pnp/sp/folders";
-import { Folder, IFolder, IFolderInfo } from "@pnp/sp/folders/types";
-import { IFileAddResult } from "@pnp/sp/files";
+import { IFolderInfo } from "@pnp/sp/folders/types";
 import { IDocumentLibraryInformation } from "@pnp/sp/sites";
 
 //#region INTERFACES, TYPES & ENUMS
@@ -703,7 +702,7 @@ export default class DataFactory {
                     $select.push(field.InternalName + "/ID");
                     $select.push(field.InternalName + "/Title");
                     $select.push(field.InternalName + "/Name");
-                    $select.push(field.InternalName + "/EMail");
+                    // $select.push(field.InternalName + "/EMail");
 
                     $expand.push(field.InternalName);
                     break;
@@ -912,6 +911,9 @@ export default class DataFactory {
             userIds.forEach(async id => {
                 // add user permissions
                 await item.roleAssignments.add(id, cmRole.Id);
+                // need to add a break to allow SP time to do other things.
+                // without this, we could possibly cause SP to throttle this site collection
+                await sleep(50);
             });
 
         } catch (er) {
@@ -936,6 +938,11 @@ export default class DataFactory {
 
     public async getCurrentUser(): Promise<ISiteUserInfo> {
         return await sp.web.currentUser();
+    }
+
+    public static async getUserById(id: number): Promise<any> {
+        const user: any = await sp.web.siteUsers.getById(id).get();
+        return user;
     }
 //#endregion
 
@@ -1073,7 +1080,7 @@ export default class DataFactory {
                 "Name": item.Name || "",
                 "DisplayType": item.DisplayType || [],
                 "OrgType": item.OrgType,
-                "OrderBy": item.OrderBy || 999999999,
+                "OrderBy": (typeof item.OrderBy === "number") ? item.OrderBy : 999999999,
                 "ParentID": (item.Parent) ? item.Parent.ID : item.OrgType || null,
                 "children": [],
                 "data": null,

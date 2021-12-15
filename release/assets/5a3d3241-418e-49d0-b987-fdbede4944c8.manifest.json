@@ -89,7 +89,7 @@
   ],
   "loaderConfig": {
     "internalModuleBaseUrls": [
-      "<!-- PATH TO CDN -->"
+      "https://localhost:4321/dist/"
     ],
     "entryModuleId": "about-us-app-web-part",
     "scriptResources": {

@@ -9,12 +9,10 @@ import { Dropdown,
     ISpinnerProps,
     ITextFieldProps, 
     Label,
-    CommandBarButton,
     ActionButton,
     Spinner, 
     TextField, 
     IButtonProps,
-    ITooltipHostProps,
     IconButton,
     TooltipHost} from 'office-ui-fabric-react';
 
@@ -32,13 +30,11 @@ import { ComboBoxListItemPicker,
     IPlaceholderProps, 
     ListItemPicker } from '@pnp/spfx-controls-react';
 import { IRichTextProps, RichText } from '@pnp/spfx-controls-react/lib/RichText';
-import { PeoplePicker, PrincipalType, IPeoplePickerProps } from '@pnp/spfx-controls-react/lib/PeoplePicker';
+import { PeoplePicker, IPeoplePickerProps } from '@pnp/spfx-controls-react/lib/PeoplePicker';
 import DataFactory, { IFieldUrlValue } from './DataFactory';
 import * as AboutUsDisplay from './AboutUsDisplay';
 import { arrayListFormat, DEBUG, DEBUG_NOTRACE, IAboutUsAppWebPartProps, LOG } from '../AboutUsAppWebPart';
-import { IAboutUsAppProps } from './AboutUsApp';
 import CustomDialog from './CustomDialog';
-import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { IItem } from '@pnp/sp/items';
 
 //#region EXPORTS

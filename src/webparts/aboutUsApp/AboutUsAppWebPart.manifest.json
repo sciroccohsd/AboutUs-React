@@ -16,7 +16,7 @@
   // SharePoint Full Page App:
   // Need to run PS or CLI script to provision a SingleWEbPartAppPage page layout.
   // https://docs.microsoft.com/en-us/sharepoint/dev/spfx/web-parts/single-part-app-pages?tabs=pnpposh
-  "supportedHosts": ["SharePointWebPart", "SharePointFullPage", "TeamsTab"],
+  "supportedHosts": ["SharePointWebPart", "SharePointFullPage", "TeamsTab", "TeamsPersonalApp"],
 
   "preconfiguredEntries": [{
     "groupId": "5c03119e-3074-46fd-976b-c60198311f70", // Other
@@ -29,12 +29,12 @@
       "description": "Enterprise directory (e.g.: YellowPages) for hierarchical organizations.",
       "displayType": "page",
       "displayTypeOptions": [
-        {"key": "page", "text": "About-Us Page"},
-        {"key": "orgchart", "text": "Org Chart"},
-        {"key": "accordian", "text": "Accordian View"},
-        {"key": "phone", "text": "Phone Directory"},
-        {"key": "datatable", "text": "Org-Function-Mission Table"},
-        {"key": "broadcast", "text": "Broadcast"}        
+        {"key": "page", "text": "About-Us Page"}
+        // {"key": "orgchart", "text": "Org Chart"},
+        // {"key": "accordian", "text": "Accordian View"},
+        // {"key": "phone", "text": "Phone Directory"},
+        // {"key": "datatable", "text": "Org-Function-Mission Table"},
+        // {"key": "broadcast", "text": "Leadership Broadcast"}        
       ],
       "listName": "",
       "ppListName_dropdown": "",
