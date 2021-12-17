@@ -791,22 +791,38 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
         emailSubject: string;
     }
     interface IContentManagersDisplayState {
+        users: IUserInfo[];
+        ownerGroupID: number;
+        cmMailToLink: string;
+
         owners: ISiteUserInfo[];
         emails: string[];
     }
     
     export class ContentManagersDisplay extends React.Component<IContentManagersDisplayProps, IContentManagersDisplayState> {
+        private cmMailToLink: string = null;
+        
         constructor(props) {
             super(props);
 
+            // set init state
             this.state = {
+                users: null,
+                ownerGroupID: null,
+                cmMailToLink: "",
                 owners: [],
                 emails: []
             };
         }
 
         public render(): React.ReactElement<IContentManagersDisplayProps> {
-            const cmMailToLink = this.generateContentManagersMailToLink();
+            let cmMailToLink = this.state.cmMailToLink;
+
+            // do we need to get new user/owner info
+            if (this.state.ownerGroupID !== this.props.ownerGroupID || (this.state.users || []).join(";") !== (this.props.users || []).join(";")) {
+                this.getData();
+                cmMailToLink = "";
+            }
 
             // if content managers mailto link === null; this means there are no users or owners
             return (cmMailToLink) ? 
@@ -819,10 +835,18 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                     <div className={ styles.contentManagersMessage }>
                         Have questions, corrections or comments about this page, send a message to the <a href={cmMailToLink} data-interception="off">Content Managers</a>.
                     </div>
-                </> : null;
+                </>
+                :
+                <>
+                    <Icon iconName="IncidentTriangle" className={ styles.fabricUIIcon }/>
+                    <span>
+                        There are no Content Managers, Owners, or Admins for this page. 
+                        Please contact the site's owner or admins to update permissions to this web part.
+                    </span>
+                </> ;
         }
 
-        public async componentDidMount() {
+        private async getData() {
             let owners = [],
                 emails = [];
 
@@ -834,10 +858,16 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                 emails = await this.getContentManagersEmails(this.props.users);
             }
 
+            const cmMailToLink = this.generateContentManagersMailToLink(owners);
+
             this.setState({
+                "users": this.props.users,
+                "ownerGroupID": this.props.ownerGroupID,
+                "cmMailToLink": cmMailToLink,
                 "owners": owners,
-                "emails": emails
+                "emails": emails,
             });
+        
         }
 
         private async getContentManagersEmails(users: IUserInfo[]): Promise<string[]> {
@@ -861,9 +891,9 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             return emails;
         }
 
-        private generateContentManagersMailToLink(): string {
-            const users = [],
-                owners = [];
+        private generateContentManagersMailToLink(owners: any[]): string {
+            const userEmails = [],
+                ownerEmails = [];
 
             let subject = encodeURIComponent(this.props.emailSubject || "About-Us"),
                 body = encodeURIComponent(location.href) || "",
@@ -872,23 +902,23 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             // add user emails to list
             if (this.props.users && this.props.users.length > 0) {
                 this.props.users.forEach(user => {
-                   if (user.EMail) users.push(user.EMail);
+                   if (user.EMail) userEmails.push(user.EMail);
                 });
             }
 
             // add owner emails to list
-            if (this.state.owners && this.state.owners.length > 0) {
-                this.state.owners.forEach(owner => {
-                    if (owner.Email) owners.push(owner.Email);
+            if (owners && owners.length > 0) {
+                owners.forEach(owner => {
+                    if (owner.Email) ownerEmails.push(owner.Email);
                 });
             }
 
             // compile all parts of the mailto link
             const _createLink = () => {
-                var to = (users.length > 0) ? users.join(";") : (owners.length > 0) ? owners.join(";") : null,
+                var to = (userEmails.length > 0) ? userEmails.join(";") : (ownerEmails.length > 0) ? ownerEmails.join(";") : null,
                     params = [];
 
-                if (users.length > 0 && owners.length > 0) params.push("cc=" + owners.join(";"));
+                if (userEmails.length > 0 && ownerEmails.length > 0) params.push("cc=" + ownerEmails.join(";"));
                 if (subject) params.push("subject=" + subject);
                 if (body) params.push("body=" + body);
 
@@ -898,13 +928,13 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             // reduce the mailto link parts smartly
             const _reduceLink = () => {
                 
-                if (owners.length > 2) {
+                if (ownerEmails.length > 2) {
                     // 1. reduce owner emails
-                    owners.pop();
+                    ownerEmails.pop();
 
-                } else if (users.length > 2) {
+                } else if (userEmails.length > 2) {
                     // 2. reduce user emails
-                    users.pop();
+                    userEmails.pop();
 
                 } else if (body.length > 0) {
                     // 3. remove body text
@@ -1749,23 +1779,12 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
         if (className) css.push(className);
 
         // render if: item data was fetched AND there is either users or an owner
-        return (this.state.ID && ((users && users.length > 0) || this.props.properties.ownerGroup))
+        return (this.state.ID)
             ? <>
-                    { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
-                    <div className={css.join(" ") }>{ React.createElement(ContentManagersDisplay, props) }</div>
-                </>
-            : 
-                <div>
-                    { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
-                    <div className={css.join(" ") }>
-                        <Icon iconName="IncidentTriangle" className={ styles.fabricUIIcon }/>
-                        <span>
-                            There are no Content Managers, Owners, or Admins for this page. 
-                            Please contact the site's owner or admins to update permissions to this web part.
-                        </span>
-                    </div>
-                </div>
-            ;
+                { (showBanner) ? <div className={ styles.sectionBanner }>{ field.Title }</div> : null }
+                <div className={css.join(" ") }>{ React.createElement(ContentManagersDisplay, props) }</div>
+            </>
+            : null;
     }
 
     private displayPageValidation(validated: string, validatedBy: IUserInfo, className?: string, showBanner?: boolean): React.ReactElement {
@@ -1802,11 +1821,23 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
 
         // create new state without all the item data.
         // need to copy all non-item data values.
-        const initState: IPageDisplayState = {
+        const initState: IPageDisplayState = assign(this.state, {
             dataStatus: "loading",
             itemId: id, // update item id value
-            permissions: null
-        };
+            permissions: {
+                canAdd: false,
+                canEdit: false,
+                canDelete: false
+            }
+        });
+
+        // remove all keys except the default ones
+        const defaultKeys = ["dataStatus", "itemId", "permissions"];
+        for (const key in initState) {
+            if (defaultKeys.indexOf(key) === -1) {
+                initState[key] = undefined;
+            }
+        }
 
         // if structure object is empty. propably because the list is new/empty.
         if (Object.keys(this.structure).length === 0) {
