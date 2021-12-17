@@ -217,7 +217,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                             </div>
                             <div className={ styles.bioNameContainer } >
                                 { (value.bio) ?
-                                    <a className={ styles.bioLink } href={ value.bio } target="_blank">
+                                    <a className={ styles.bioLink } href={ value.bio } target="_blank" data-interception="off">
                                         <span className={ styles.bioName }>{ value.name }</span>
                                     </a>
                                     : <span className={ styles.bioName }>{ value.name }</span>
@@ -295,7 +295,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
 
                     <div className={ itemClasses.join(" ") }>
                         <TooltipHost tooltipProps={ TooltipProps(tooltipText.join("\n")) } >
-                            <a className={ styles.link } href={ value.url } target={ (value.target) ? "_blank" : "_self" }>
+                            <a className={ styles.link } href={ value.url } target={ (value.target) ? "_blank" : "_self" } data-interception="off" >
                                 <Icon iconName="Link12" className={ styles.fabricUIIcon } />
                                 { value.text || value.url }
                             </a>
@@ -367,7 +367,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
 
                     <div className={ itemClasses.join(" ") }>
                         <TooltipHost tooltipProps={ TooltipProps(tooltipText.join("\n")) } >
-                            <a className={ styles.link } href={ value.url } target={ (value.target) ? "_blank" : "_self" }>
+                            <a className={ styles.link } href={ value.url } target={ (value.target) ? "_blank" : "_self" } data-interception="off">
                                 <Icon iconName="Processing" className={ styles.fabricUIIcon } />
                                 { value.text || value.url }
                             </a>
@@ -444,7 +444,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                                 <div className={ styles.name }>{ value.text }</div>
                             </div>
                             { (value.email) ? 
-                                <a className={ styles.link } href={`mailto:${value.email}`} target="_blank">{value.email}</a> : null }
+                                <a className={ styles.link } href={`mailto:${value.email}`} target="_blank" data-interception="off">{value.email}</a> : null }
                             { (value.email2) ? <div className={ styles.redContactsText }>SIPR: {value.email2}</div> : null }
                             { (value.email3) ? <div >JWIC: {value.email3}</div> : null }
                             { (value.phone1 || value.phone2 || value.dsn) ?
@@ -456,7 +456,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                                 : null
                             }
                             { (value.location) ? <div className={ styles.location }>Location: {value.location}</div> : null }
-                            { (value.website) ? <a className={ styles.link } href={value.website} target="_blank">Website</a> : null }
+                            { (value.website) ? <a className={ styles.link } href={value.website} target="_blank" data-interception="off">Website</a> : null }
                         </TooltipHost>
                         {
                             (this.props.showEditControls) ? React.createElement(ComplexDataCommandBar, commandBarProps) : null
@@ -817,7 +817,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                         </ul> : null
                     }
                     <div className={ styles.contentManagersMessage }>
-                        Have questions, corrections or comments about this page, send a message to the <a href={cmMailToLink}>Content Managers</a>.
+                        Have questions, corrections or comments about this page, send a message to the <a href={cmMailToLink} data-interception="off">Content Managers</a>.
                     </div>
                 </> : null;
         }
@@ -931,7 +931,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             return <Wrapper
                     condition={ "EMail" in user && user.EMail.length > 0 }
                     wrapper={ children => 
-                        <a href={ `mailtto:${user.EMail}?subject=${encodeURIComponent(this.props.emailSubject)}` } className={ styles.email }>
+                        <a href={ `mailtto:${user.EMail}?subject=${encodeURIComponent(this.props.emailSubject)}` } className={ styles.email } data-interception="off">
                             {children}
                         </a> }
                     else={ children => <span className={ styles.email }>{children}</span>}
@@ -1166,7 +1166,7 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
                     <input
                         className={ styles.searchbox }
                         value={ this.state.queryText }
-                        placeholder={ this.props.placeholder || "Search..." }
+                        placeholder={ this.props.placeholder || "Search About-Us for..." }
                         onChange={ evt => this.searchQuery_onChange(evt.target.value) }
                         onKeyPress={ evt => {
                             if (evt.keyCode === 13 || evt.which === 13) this.searchButton_onClick();
@@ -1349,18 +1349,10 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
 
     public async componentDidMount() {
         // get item data & breadcrumb items
-        const [ structure, permissions] = await Promise.all([
-                this.props.list.getDataStructure(this.props.properties.homeTitle),
-                this.props.list.getUserPermissions()
-            ]);
-
-        this.structure = structure;
-
-        this.setState({...this.state, permissions: permissions});
-        
+        this.structure = await this.props.list.getDataStructure(this.props.properties.homeTitle);
 
         // initialize state with item data
-        const item = await this.getItem(this.props.itemId);
+        await this.getItem(this.props.itemId);
     }
     //#endregion
 
@@ -1813,7 +1805,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
         const initState: IPageDisplayState = {
             dataStatus: "loading",
             itemId: id, // update item id value
-            permissions: this.state.permissions // copy from original state
+            permissions: null
         };
 
         // if structure object is empty. propably because the list is new/empty.
@@ -1875,9 +1867,11 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
         }
 
         // finally, was item found
-        //if (item && "DisplayType" in item && item.DisplayType instanceof Array && item.DisplayType.indexOf(PageDisplay.type) > -1) {
         if (item) {
             initState.dataStatus = "ready";
+
+            // get current user permissions
+            initState.permissions = await this.props.list.getUserPermissions(item.ID);
 
             // keep track of retrieved items
             if (item.ID in this.structure) this.structure[item.ID].data = item;

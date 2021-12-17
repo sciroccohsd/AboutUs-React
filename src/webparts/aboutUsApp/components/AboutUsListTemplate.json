@@ -101,7 +101,7 @@
         "type": "SP.FieldNumber"
       },
       "DefaultValue": "100",
-      "Description": "Order placement compared to it's piers.",
+      "Description": "Order placement compared to its peers.",
       "InternalName": "OrderBy",
       "Required": true,
       "Title": "Order By",
@@ -113,7 +113,7 @@
         "type": "SP.FieldMultiLineText"
       },
       "DefaultValue": null,
-      "Description": "Mission statementorganizational goals.",
+      "Description": "Mission statement/organizational goals.",
       "InternalName": "Mission",
       "Required": false,
       "Title": "Mission Statement",
@@ -182,7 +182,7 @@
         "type": "SP.FieldMultiLineText"
       },
       "DefaultValue": null,
-      "Description": "Common and useful terms used to search for this organization and it's services.",
+      "Description": "Common and useful terms used to search for this organization and its services.",
       "InternalName": "Keywords",
       "Required": false,
       "Title": "Responsibilities, Tags and Keywords",
@@ -372,7 +372,7 @@
         "type": "SP.FieldMultiChoice"
       },
       "DefaultValue": ";#About-Us Page;#Org-Chart;#Phone Directory",
-      "Description": "Select where you want to display this information. If nothing is selected, this item will exists but will not be displayed anywhere.",
+      "Description": "Select where you want to display this information. If nothing is selected, this item will exist but will not be displayed anywhere.",
       "InternalName": "DisplayType",
       "Required": false,
       "Title": "Display this informtion as",

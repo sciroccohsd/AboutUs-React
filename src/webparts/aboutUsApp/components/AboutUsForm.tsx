@@ -1349,8 +1349,8 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
                 case "SP.FieldUrl":
                     if (valueState.value) {
-                        if (typeof valueState.value === "object" && "sp" in valueState.value) {
-                            if (valueState.value.sp.length > 0) return valueState.value.sp;
+                        if (typeof valueState.value === "object" && "Url" in valueState.value && valueState.value.Url) {
+                            return valueState.value;
                         }
                     }
                     break;
@@ -1491,7 +1491,7 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
                 const modalMsg = CustomDialog.modalMsg("Processing...", "Please wait!");
 
                 try {
-                    await this.props.list.api.items.getById(this.listItem.Id).delete();
+                    await this.props.list.api.items.getById(this.listItem.Id).recycle();
                     modalMsg.close();
                     return this.goBack();
 
@@ -2129,7 +2129,12 @@ export default class AboutUsForms extends React.Component<IAboutUsFormProps, IAb
 
     /** sets user permission flag states (add, edit, delete) */
     private async setCurrentUserFlags(): Promise<void> {
-        const userPermissions = await this.props.list.getUserPermissions();
+        let userPermissions;
+        if (this.props.itemId && typeof this.props.itemId === "number") {
+            userPermissions = await this.props.list.getUserPermissions(this.props.itemId);
+        } else {
+            userPermissions = await this.props.list.getUserPermissions();
+        }
 
         this.setState({
             canSaveForm: userPermissions.canAdd || userPermissions.canEdit,

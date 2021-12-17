@@ -832,14 +832,16 @@ export default class DataFactory {
             const existingRoleAssignments: IRoleAssignmentInfo[] = await this.api.roleAssignments.get();
 
             // remove all existing roles
-            existingRoleAssignments.forEach(async ra => {
+            for (let i = 0; i < existingRoleAssignments.length; i++) {
+                const ra = existingRoleAssignments[i];
+                
                 try {
                     const response = await this.api.roleAssignments.getById(ra.PrincipalId).delete();
                     await sleep(10);   // pause to let SPO do the work
                 } catch (er) {
                     LOG("ERROR! Unable to delete role assignment for:", ra, er);
                 }
-            });
+            }
 
             // set owners
             if (typeof ownerId === "number") {
@@ -908,26 +910,44 @@ export default class DataFactory {
             await item.breakRoleInheritance(true);  // when breaking inheritance, copy list permissions
 
             // add users
-            userIds.forEach(async id => {
-                // add user permissions
-                await item.roleAssignments.add(id, cmRole.Id);
-                // need to add a break to allow SP time to do other things.
-                // without this, we could possibly cause SP to throttle this site collection
-                await sleep(50);
-            });
+            for (let i = 0; i < userIds.length; i++) {
+                const id = userIds[i];
+                try {
+                    
+                    // add user permissions
+                    await item.roleAssignments.add(id, cmRole.Id);
+                    // need to add a break to allow SP time to do other things.
+                    // without this, we could possibly cause SP to throttle this site collection
+                    await sleep(10);
+                } catch(er) {
+                    LOG(`ERROR! Unable to update Content Manager for item: ${ itemId }; user: ${ id }; `, er);
+                }
+            }
 
         } catch (er) {
-            LOG(`ERROR! Unable to update Content Managers for item ID: ${ itemId}.`, er);
+            LOG(`ERROR! Unable to update Content Managers.`, er);
         }
     }
 //#endregion
 
 //#region USER
-    public async getUserPermissions(): Promise<IUserPermissions> {
-        const requests = [this.api.currentUserHasPermissions(PermissionKind.AddListItems),
-            this.api.currentUserHasPermissions(PermissionKind.EditListItems),
-            this.api.currentUserHasPermissions(PermissionKind.DeleteListItems)],
-            [canAdd, canEdit, canDelete] = await Promise.all(requests);
+    public async getUserPermissions(itemId?: number): Promise<IUserPermissions> {
+        const requests = [];
+
+        if (itemId && typeof itemId === "number") {
+            // get item level permissions
+            requests.push(this.api.items.getById(itemId).currentUserHasPermissions(PermissionKind.AddListItems));
+            requests.push(this.api.items.getById(itemId).currentUserHasPermissions(PermissionKind.EditListItems));
+            requests.push(this.api.items.getById(itemId).currentUserHasPermissions(PermissionKind.DeleteListItems));
+
+        } else {
+            // get 'this list' permissions
+            requests.push(this.api.currentUserHasPermissions(PermissionKind.AddListItems));
+            requests.push(this.api.currentUserHasPermissions(PermissionKind.EditListItems));
+            requests.push(this.api.currentUserHasPermissions(PermissionKind.DeleteListItems));
+        }
+        
+        const [canAdd, canEdit, canDelete] = await Promise.all(requests);
 
         return {
             canAdd: canAdd,

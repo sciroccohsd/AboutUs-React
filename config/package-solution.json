@@ -1,9 +1,9 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
   "solution": {
-    "name": "About-Us App",
+    "name": "STRATCOM-AboutUs",
     "id": "ea20c962-0382-4f17-ae89-e02ab7d9c163",
-    "version": "1.0.0.1",
+    "version": "1.0.0.2",
     "includeClientSideAssets": true,
     "isDomainIsolated": false,
     "developer": {
@@ -15,6 +15,6 @@
     }
   },
   "paths": {
-    "zippedPackage": "solution/aboutus-react.sppkg"
+    "zippedPackage": "solution/stratcom-aboutus.sppkg"
   }
 }

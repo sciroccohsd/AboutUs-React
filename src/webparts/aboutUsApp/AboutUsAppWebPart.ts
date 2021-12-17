@@ -653,7 +653,6 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             })
         );
 
-
         // Owner Permission Group
         group_Permissions.groupFields.push(
             PropertyPaneDropdown("ownerGroup", {
@@ -698,6 +697,14 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
             PropertyPaneLabel("lblReaderGroup", {
                 text: "Reader group members can view About-Us information. " +
                     "Normally the site's Visitors group."
+            })
+        );
+
+        // button: Reset permissions
+        group_Permissions.groupFields.push(
+            PropertyPaneButton("btnResetListPermissions", {
+                text: "Reset all list item permissions",
+                onClick: this.resetListPermissions.bind(this)
             })
         );
 
@@ -956,9 +963,11 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         try {
             const items = await this.list_.api.items.select("ID").getAll();
 
-            items.forEach(async item => {
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                
                 await this.list_.updateContentManagers(item.Id);
-            });
+            }
         } catch (er) {
             LOG("ERROR! Unable to update content managers for all items.", er);
         }

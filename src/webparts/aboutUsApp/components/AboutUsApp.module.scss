@@ -282,6 +282,7 @@
 
       .searchSection {
         grid-area: searchSection;
+        height: min-content;
       }
 
       .header {
@@ -611,7 +612,7 @@
       justify-content: space-between;
       padding: 0;
       margin: 0;
-      width: 200px;
+      width: 250px;
 
       .searchbox {
         border: none;
@@ -646,7 +647,7 @@
       max-height: 600px;
       overflow: hidden auto;
       position: absolute;
-      width: 200px;
+      width: 250px;
       z-index: 100;
 
       .searchResultsList {
