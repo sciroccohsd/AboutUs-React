@@ -430,6 +430,15 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                 hideLocalUploadTab: true
             })
         );
+        if (this.properties.logo !== null) {
+            group_logo.groupFields.push(
+                PropertyPaneButton("btnClearDefaultLogo", {
+                    buttonType: PropertyPaneButtonType.Normal,
+                    text: "Remove default logo",
+                    onClick: this.clearDefaultLogo_click.bind(this)
+                })
+            );
+        }
 
         // Display Tasking Authority
         group.groupFields.push(
@@ -837,11 +846,19 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
     }
 
     // EVENT HANDLERS
+    /** 'Remove default logo' click event handler.  Clears the default logo property.
+     * @param evt Click event object
+     */
+    private clearDefaultLogo_click(evt: Event): void {
+        this.properties.logo = null;
+        this.context.propertyPane.refresh();
+    }
+
     /** 'Create New List' click event handler. Prompts user for a list name, then creates it.
      * @param evt Click event object
      * @returns Promise. Resolved when the dialog closes and the list is created
      */
-     private async createList_click(evt: Event): Promise<void> {
+    private async createList_click(evt: Event): Promise<void> {
         let newListName: string = this.properties.listName || this.propertyPane_.defaultName;
         let validation: IListValidationResults = { "valid": false, "message": "" };
         const existingListNames = this.propertyPane_.data.optListNames.map(opt => opt.text);

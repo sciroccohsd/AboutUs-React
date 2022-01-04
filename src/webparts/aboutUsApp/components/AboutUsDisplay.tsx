@@ -187,6 +187,9 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
             const key = this.props.itemIndex,
                 value = this.props.value,
                 itemClasses = [styles.aboutUsBioItem],
+                bioImage_onError = (evt) => {
+                    evt.target.src = this.no_bio_pic || "";
+                },
                 tooltipText = [],
                 commandBarProps: IAboutUsComplexDataCommandBarProps = {
                     itemIndex: this.props.itemIndex,
@@ -213,7 +216,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                                 : null
                             }
                             <div className={ styles.bioImgContainer }>
-                                <img className={ styles.bioImg } alt="Bio image" src={ value.image || this.no_bio_pic } />
+                                <img className={ styles.bioImg } alt="Bio image" src={ value.image || this.no_bio_pic } onError={ bioImage_onError } />
                             </div>
                             <div className={ styles.bioNameContainer } >
                                 { (value.bio) ?
@@ -1450,12 +1453,15 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
 
     private displayLogo(logo: {"Url": string, "Description": string}, className?: string): React.ReactElement {
         const css = [styles.logoSection],
+            onError = (evt) => {
+                evt.target.src = (this.props.properties.logo) ? this.props.properties.logo.fileAbsoluteUrl || "" : "" ;
+            },
             imgUrl = (logo) ? trim(logo.Url) : (this.props.properties.logo) ? this.props.properties.logo.fileAbsoluteUrl || "" : "" ;
 
         if (className) css.push(className);
 
         return (imgUrl) ? <div className={ css.join(" ") }>
-            <img className={ styles.pageLogo } src={ imgUrl } alt="About-Us page logo" />
+            <img className={ styles.pageLogo } src={ imgUrl } alt="Logo" onError={onError} />
         </div> : null ;
     }
 

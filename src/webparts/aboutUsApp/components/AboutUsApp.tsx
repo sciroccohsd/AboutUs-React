@@ -19,6 +19,7 @@ export interface IAboutUsAppProps {
 interface IAboutUsAppState {
     displayType: string;
     itemId: number;
+    convertingParam: boolean;
 }
 //#endregion
 
@@ -33,7 +34,9 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
     constructor(props) {
         super(props);
 
-        const url = new URL(window.location.href);
+        const url = new URL(window.location.href),
+            urlParam = url.searchParams.get(this.props.properties.urlParam) || "";
+
         let form = this.getAboutUsForm(),
             itemId = this.getAboutUsID();
 
@@ -43,7 +46,8 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
         // initialize state
         this.state = {
             "displayType": form || this.props.displayType,
-            "itemId": itemId
+            "itemId": itemId,
+            "convertingParam": (itemId === null && urlParam.length > 0)
         };
 
         // set initial history state
@@ -54,12 +58,10 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
     }
 
     public render(): React.ReactElement<IAboutUsAppProps> {
-        // DEBUG_NOTRACE("this.state:", this.state);
-        // DEBUG_NOTRACE("this.props.lists:", this.props.list);
-
         return (
             <div className={styles.aboutUsApp}>
                 { !this.props.list.exists ? this.createConfigureForm() : 
+                    (this.state.convertingParam) ? null :
                     <>
                         { this.state.displayType === "page" ? this.createPageDisplay() : null }
                         {/* { this.state.displayType === "orgchart" ? this.createOrgChartDisplay() : null } */}
@@ -69,10 +71,23 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
                         {/* { this.state.displayType === "broadcast" ? this.createBroadcastDisplay() : null } */}
                         { this.state.displayType === "new" ? this.createNewForm() : null }
                         { this.state.displayType === "edit" ? this.createEditForm() : null }
-                    </>
+                    </> 
                 }
             </div>
         );
+    }
+
+    public async componentDidMount(): Promise<void> {
+
+        // try to convert the AboutUs param to an item ID. Assumes param is the item Title.
+        if (this.state.convertingParam) {
+            const itemId = await this.getAboutUsIDFromTitleParam();
+            this.changeItemID(itemId, null, null, true);
+            this.setState({ 
+                "itemId": itemId,
+                "convertingParam": false
+             });
+        }
 
     }
 
@@ -130,6 +145,26 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
 
         return (displayType) ? displayType.toLowerCase() : "";
     }
+
+    private async getAboutUsIDFromTitleParam(): Promise<number> {
+        if (!this.props.list.exists) return null;
+
+        const url = new URL(window.location.href),
+            urlParam = (url.searchParams.get(this.props.properties.urlParam) || "");
+
+        // if param exists and is NOT a number. if it is a number, it's assumed to be the item ID number
+        if (urlParam && isNaN(Number(urlParam))) {
+            const items = await this.props.list.getItemsByTitle(urlParam, ["ID"]);
+
+            if (items && items.length > 0) {
+                const itemId = items[0].ID;
+
+                return itemId;
+            }
+        }
+
+        return null;
+    }
 //#endregion
 
 //#region DISPLAY CHANGES
@@ -164,13 +199,12 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
             url = href.toString();
         }
 
-        //this.setState({"itemId": id}, () => {
-            if (replaceState === true) {
-                history.replaceState(this.state, document.title || title, url);
-            } else {
-                history.pushState(this.state, document.title || title, url);
-            }
-        //});
+        if (replaceState === true) {
+            history.replaceState(this.state, document.title || title, url);
+        } else {
+            history.pushState(this.state, document.title || title, url);
+        }
+        
         this.setState({"itemId": id});
 
     }

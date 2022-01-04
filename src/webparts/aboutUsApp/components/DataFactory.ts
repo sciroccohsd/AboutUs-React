@@ -677,6 +677,27 @@ export default class DataFactory {
         return _item;
     }
 
+    /** Basic GET request for SP List Items
+     * @param title Item Title to retrieve
+     * @returns API results
+     */
+        public async getItemsByTitle(title: string, select?: string[]): Promise<Record<string, any>[]> {
+        let _items = [];
+
+        try {
+            const request = this.api.items;
+
+            if (select) {
+                request.select.apply(request, select);
+            }
+            _items = await request.filter(`Title eq '${ title }'`).get();
+
+        } catch (er) {
+            LOG("ERROR! getItemByTitle(): Unable to fetch item by 'Title':", title, er);
+        }
+        return _items;
+    }
+    
     /** basic GET request for SP List Item with Lookup fields expanded.
      * @param id Item ID to retrieve
      * @returns API results
