@@ -469,7 +469,7 @@
   }
 
   .subContentContainer {
-    @include default-section($margin: 20px 10px, $padding: 0 10px);
+    @include default-section($margin: 20px 10px, $padding: 10px);
     background-color: "[theme: HoverBackground, default:rgba(197, 233, 234, 0.50)]";
     border-color: "[theme: HeaderLines, default:#a19f9d]";
     border-radius: 0 0 5px 5px;

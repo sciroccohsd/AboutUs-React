@@ -982,7 +982,15 @@ export default class DataFactory {
     }
 
     public static async getUserById(id: number): Promise<any> {
-        const user: any = await sp.web.siteUsers.getById(id).get();
+
+        let user: any = null;
+
+        try {
+            user = await sp.web.siteUsers.getById(id).get();
+        } catch (er) {
+            LOG("ERROR! Unable to get user.", id, er);
+        }
+
         return user;
     }
 //#endregion

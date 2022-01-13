@@ -3,7 +3,7 @@
   "solution": {
     "name": "STRATCOM-AboutUs",
     "id": "ea20c962-0382-4f17-ae89-e02ab7d9c163",
-    "version": "1.0.0.3",
+    "version": "1.0.0.5",
     "includeClientSideAssets": true,
     "isDomainIsolated": false,
     "developer": {

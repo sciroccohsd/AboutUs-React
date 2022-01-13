@@ -832,7 +832,7 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                 <>
                     { (this.props.users && this.props.users.length > 0) ?
                         <ul className={ styles.contentManagersList }>
-                            {(this.state.emails.length > 0) ? this.props.users.map(user => <li>{this.mailTo(user)}</li>) : null }
+                            {(this.props.users.length > 0) ? this.props.users.map(user => <li>{this.mailTo(user)}</li>) : null }
                         </ul> : null
                     }
                     <div className={ styles.contentManagersMessage }>
@@ -883,10 +883,14 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                 const responses = await Promise.all(promises);
 
                 responses.forEach(userInfo => {
-                    if (userInfo.Email) {
-                        const user = find(users, {"ID": userInfo.Id});
-                        if (user) user.EMail = userInfo.Email;
-                        emails.push(userInfo.Email);
+                    try{
+                        if (userInfo && userInfo.Email) {
+                            const user = find(users, {"ID": userInfo.Id});
+                            if (user) user.EMail = userInfo.Email;
+                            emails.push(userInfo.Email);
+                        }
+                    } catch (er) {
+                        LOG("ERROR! Unable to set user info.", userInfo, responses, er);
                     }
                 });
             }
@@ -961,17 +965,17 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
         }
 
         private mailTo(user: IUserInfo): React.ReactElement {
-            return <Wrapper
+            return (user) ? <Wrapper
                     condition={ "EMail" in user && user.EMail.length > 0 }
                     wrapper={ children => 
-                        <a href={ `mailtto:${user.EMail}?subject=${encodeURIComponent(this.props.emailSubject)}` } className={ styles.email } data-interception="off">
+                        <a href={ `mailto:${user.EMail}?subject=${encodeURIComponent(this.props.emailSubject)}` } className={ styles.email } data-interception="off">
                             {children}
                         </a> }
                     else={ children => <span className={ styles.email }>{children}</span>}
                 >
-                    <Icon iconName="Mail" className={ styles.fabricUIIcon } />
+                    {(user.EMail) ? <Icon iconName="Mail" className={ styles.fabricUIIcon } /> : null }
                     {user.Title || user.EMail || user.Name || "Content Manager"}
-                </Wrapper>;
+                </Wrapper> : null;
         } 
     }
 //#endregion
