@@ -265,7 +265,7 @@
       "DefaultValue": null,
       "InternalName": "Contacts",
       "Required": false,
-      "Title": "Orgainization Contacts",
+      "Title": "Organization Contacts",
       "FieldTypeKind": 3,
       "AllowHyperlink": false,
       "AppendOnly": false,
