@@ -449,7 +449,8 @@ import FormControls, { LoadingSpinner, ShowConfigureWebPart } from './FormContro
                             { (value.email) ? 
                                 <a className={ styles.link } href={`mailto:${value.email}`} target="_blank" data-interception="off">{value.email}</a> : null }
                             { (value.email2) ? <div className={ styles.redContactsText }>SIPR: {value.email2}</div> : null }
-                            { (value.email3) ? <div >JWIC: {value.email3}</div> : null }
+                            { (value.email3) ? <div className={ styles.orangeContactsText }>JWIC: {value.email3}</div> : null }
+                            { (value.email4) ? <div className={ styles.yellowContactsText }>GOLD: {value.email4}</div> : null }
                             { (value.phone1 || value.phone2 || value.dsn) ?
                                 <div className={ styles.phoneContainer }>
                                     { (value.phone1 ) ? <span className={ styles.phone }>&#9742;: {value.phone1}</span> : null }

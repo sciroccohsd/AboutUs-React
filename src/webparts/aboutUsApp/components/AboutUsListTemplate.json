@@ -677,6 +677,12 @@
         "defaultValue": ""
       },
       {
+        "type": "email",
+        "internalName": "email4",
+        "label": "GOLD Email",
+        "defaultValue": ""
+      },
+      {
         "type": "tel",
         "internalName": "phone1",
         "label": "Local phone with area code",
