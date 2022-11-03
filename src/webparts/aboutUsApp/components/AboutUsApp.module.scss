@@ -18,6 +18,10 @@
   margin: $margin
 }
 
+:global(div[role=main]) {
+  overflow-x: auto;
+}
+
 .aboutUsApp {
   margin: 0 20px;
   padding: 0;

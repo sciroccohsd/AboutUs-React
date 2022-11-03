@@ -95,7 +95,7 @@
     "scriptResources": {
       "about-us-app-web-part": {
         "type": "path",
-        "path": "about-us-app-web-part_9aa8ca58f9d1bde02bb1.js"
+        "path": "about-us-app-web-part_c8f777411bf363e007e7.js"
       },
       "@microsoft/sp-dialog": {
         "type": "component",
