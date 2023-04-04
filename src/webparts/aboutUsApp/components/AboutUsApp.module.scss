@@ -650,6 +650,7 @@
       border-bottom-right-radius: 5px;
       border-top: 0;
       box-shadow: 7px 5px 5px -3px rgba(92,92,92,0.4), 0px 5px 10px rgba(92,92,92,0.6), -7px 5px 5px -3px rgba(92,92,92,0.4);
+      display: none;
       font-weight: normal;
       margin-left: 0;
       max-height: 600px;
@@ -657,6 +658,10 @@
       position: absolute;
       width: 250px;
       z-index: 100;
+
+      &.showResults {
+        display: block;
+      }
 
       .searchResultsList {
         list-style: none;
@@ -884,6 +889,11 @@
       visibility: visible;
     }
   }
+}
+
+/** TOOLTIP **/
+.aboutUsTooltip {
+  white-space: pre-line;
 }
 
 /** REACT-EASY-SORT **/

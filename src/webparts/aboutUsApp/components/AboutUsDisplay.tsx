@@ -1144,7 +1144,7 @@ export function TooltipProps(tooltip: string): ITooltipProps {
     return {
         directionalHint: DirectionalHint.topLeftEdge,
         onRenderContent: ()=>{
-            return (text.length > 0) ? <div style={{whiteSpace: "pre-line"}}>{text}</div> : null;
+            return (text.length > 0) ? <div className={ styles.aboutUsTooltip }>{text}</div> : null;
         }
     };
 }
@@ -1187,6 +1187,7 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
 
     public render(): React.ReactElement<ISearchBoxProps> {
         const css = [styles.searchContainer],
+            cssSearchResultsWrapper = [styles.searchResultsWrapper],
             buttonProps: IButtonProps = {
                 className: styles.button,
                 iconProps: { iconName: this.props.icon || "Search" },
@@ -1195,6 +1196,7 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
             };
 
         if (this.props.className) css.push(this.props.className);
+        if (this.state.showResults) cssSearchResultsWrapper.push(styles.showResults);
 
         return (
             <div className={ css.join(" ") }
@@ -1214,8 +1216,8 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
                         { React.createElement(IconButton, buttonProps) }
                     </TooltipHost>
                 </div>
-                <div className={ styles.searchResultsWrapper }
-                    style={{"display": (this.state.showResults) ? "" : "none"}}
+                <div className={ cssSearchResultsWrapper.join(" ") }
+                    //style={{"display": (this.state.showResults) ? "" : "none"}}
                     onMouseLeave={ evt => this.setFocus("results", false) }
                     onMouseEnter={ evt =>this.setFocus("results", true) }>
                         <ul className={ styles.searchResultsList }>
@@ -1327,7 +1329,7 @@ export class SearchBox extends React.Component<ISearchBoxProps, ISearchBoxState>
 
 export default class PageDisplay extends React.Component<IPageDisplayProps, IPageDisplayState> {
     //#region PROPERTIES
-    public static readonly type = "About-Us Page";  // must match one of the List's 'DisplayType' field options
+    public readonly type = "About-Us Page";  // must match one of the List's 'DisplayType' field options
 
     private structure: TStructure = {};
     //#endregion
@@ -1361,7 +1363,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
                     onConfigure={ () => { this.props.changeDisplay("new");} }
                     iconName="Org"
                     iconText="There are no items to display."
-                    description={ `When adding an item, select "${PageDisplay.type}" as the display type.`}
+                    description={ `When adding an item, select "${this.type}" as the display type.`}
                     buttonLabel="Add New Item"
                 />;
 
@@ -1398,7 +1400,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
     private defaultDisplayTemplate(): React.ReactElement {
         return <div className={ styles.defaultPageLayout }>
             { this.displayAppMessaage(this.props.properties.appMessage, this.props.properties.appMessageIsAlert) }
-            { this.displayMenu(false) }
+            { this.displayMenu(true) }
 
             <div className={ styles.headerSection }>
                 { this.displayLogo(this.state.Logo) }
@@ -1407,7 +1409,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
                 { this.displayHeaderTitle(this.state.Title, this.state.Name, this.state.Description) }
             </div>
 
-            { (this.state.DisplayType && this.state.DisplayType.indexOf(PageDisplay.type) > -1) ? 
+            { (this.state.DisplayType && this.state.DisplayType.indexOf(this.type) > -1) ? 
                 <>
                     <div className={ styles.bodySection }>
                         { this.displayMission(this.state.Mission) }
@@ -1484,32 +1486,36 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
         if (className) css.push(className);
 
         if (showViews) {
-            // 'Org Chart' button
-            items.push({
-                key: `btnOrgChart${key}`,
-                text: "Org Chart",
-                iconProps: { iconName: "Org", styles: {root: {"fontSize": "12px"}} },
-                className: styles.menuItem,
-                onClick: evt => { this.props.changeDisplay("orgchart"); }
-            });
+            // 'Org Chart' button if "orgchart_url" and "orgchart_param" properties are set
+            if (this.props.properties.orgchart_url && this.props.properties.orgchart_param) {
+                items.push({
+                    key: `btnOrgChart${key}`,
+                    text: "Org Chart",
+                    iconProps: { iconName: "Org", styles: {root: {"fontSize": "12px"}} },
+                    className: styles.menuItem,
+                    onClick: evt => { this.props.changeDisplay("orgchart"); }
+                });
+            }
 
-            // 'Accordian' button
-            items.push({
-                key: `btnAccordian${key}`,
-                text: "Explorer",
-                iconProps: { iconName: "DOM", styles: {root: {"fontSize": "12px"}} },
-                className: styles.menuItem,
-                onClick: evt => { this.props.changeDisplay("accordian"); }
-            });
+            // 'Accordian' button if "accordian_url" and "accordian_param" properties are set
+                if (this.props.properties.accordian_url && this.props.properties.accordian_param) {
+                items.push({
+                    key: `btnAccordian${key}`,
+                    text: "Explorer",
+                    iconProps: { iconName: "DOM", styles: {root: {"fontSize": "12px"}} },
+                    className: styles.menuItem,
+                    onClick: evt => { this.props.changeDisplay("accordian"); }
+                });
+            }
 
-            // 'Phone' button
-            items.push({
-                key: `btnPhone${key}`,
-                text: "Phone Directory",
-                iconProps: { iconName: "PublishCourse", styles: {root: {"fontSize": "12px"}} },
-                className: styles.menuItem,
-                onClick: evt => { this.props.changeDisplay("phone"); }
-            });
+            // // 'Phone' button
+            // items.push({
+            //     key: `btnPhone${key}`,
+            //     text: "Phone Directory",
+            //     iconProps: { iconName: "PublishCourse", styles: {root: {"fontSize": "12px"}} },
+            //     className: styles.menuItem,
+            //     onClick: evt => { this.props.changeDisplay("phone"); }
+            // });
         }
 
         if (showTools) {
@@ -1541,7 +1547,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
         const props: IBreadcrumbDisplayProps = {
             properties: this.props.properties,
             structure: this.structure,
-            displayType: PageDisplay.type,
+            displayType: this.type,
             itemID: this.props.itemId,
             onClick: this.navigateTo.bind(this)
         };
@@ -1888,7 +1894,7 @@ export default class PageDisplay extends React.Component<IPageDisplayProps, IPag
 
                     // key's in the structure object can be literal strings or numbers. Numeric keys are list items.
                     // check to see if key is a number, can be displayed, and wasn't already tried before
-                    if (!isNaN(_id) && _item.DisplayType.indexOf(PageDisplay.type) > -1 && !_item.flags.attemptedFetch) {
+                    if (!isNaN(_id) && _item.DisplayType.indexOf(this.type) > -1 && !_item.flags.attemptedFetch) {
                         id = _id;
                         _item.flags.attemptedFetch = true;
                         break;

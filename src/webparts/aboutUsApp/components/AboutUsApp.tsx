@@ -169,6 +169,40 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
 
 //#region DISPLAY CHANGES
     private changeDisplayType(displayType: string) {
+        // handle display type: "orgchart" differently; open in new tab
+        if (displayType === "orgchart") {
+
+            // and, if "orgchart_url" and "orgchart_param" are set
+            if (this.props.properties.orgchart_url && this.props.properties.orgchart_param) {
+
+                // create orgchart url with param and value
+                const _url = this.createUrl(this.props.properties.orgchart_url, this.props.properties.orgchart_param);
+
+                // if url was created, open it in a new tab
+                if (_url) window.open(_url.toString(), "_blank");
+            }
+
+            // exit
+            return;
+        }
+
+        // handle display type: "accordian" differently; open in new tab
+        if (displayType === "accordian") {
+
+            // and if "accordian_url" and "accordian_param" are set
+            if (this.props.properties.accordian_url && this.props.properties.accordian_param) {
+
+                // create accordian url with param and value
+                const _url = this.createUrl(this.props.properties.accordian_url, this.props.properties.accordian_param);
+
+                // if url was created, open it in a new tab
+                if (_url) window.open(_url.toString(), "_blank");
+            }
+
+            // exit
+            return;
+        }
+
         // don't change view if the display type didn't change
         if (this.state.displayType === displayType) return;
 
@@ -218,6 +252,22 @@ export default class AboutUsApp extends React.Component<IAboutUsAppProps, IAbout
 
         if (this.state.displayType !== state.displayType || this.state.itemId !== state.itemId) {
             this.setState(state as IAboutUsAppState);
+        }
+    }
+//#endregion
+
+//#region HELPERS
+    private createUrl(url: string, param: string): URL {
+        // create url with param and value
+        const _url = new URL(url);
+        
+        // if itemId exists, set param, then return url
+        if (this.state.itemId) {
+            _url.searchParams.set(param, this.state.itemId.toString());
+            return _url;
+
+        } else {
+            return null;
         }
     }
 //#endregion

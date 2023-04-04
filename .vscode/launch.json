@@ -6,9 +6,9 @@
   "version": "0.2.0",
   "configurations": [{
       "name": "Hosted workbench",
-      "type": "pwa-msedge",
+      "type": "msedge",
       "request": "launch",
-      "url": "https://stratj622e5.sharepoint.com/sites/J622Team/_layouts/workbench.aspx",
+      "url": "https://dod365.sharepoint-mil.us/sites/STRATCOM-Public/_layouts/workbench.aspx",
       "webRoot": "${workspaceRoot}",
       "sourceMaps": true,
       "sourceMapPathOverrides": {

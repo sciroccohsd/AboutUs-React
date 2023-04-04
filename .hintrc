@@ -12,6 +12,7 @@
           "white-space: break-spaces"
         ]
       }
-    ]
+    ],
+    "axe/forms": "off"
   }
 }

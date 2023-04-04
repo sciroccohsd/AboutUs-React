@@ -51,6 +51,11 @@
       "pageTemplate": "default",
 
       "orgchart_key": {},
+      "orgchart_url": "",
+      "orgchart_param": "aboutus",
+
+      "accordian_url": "",
+      "accordian_param": "aboutus",
 
       "broadcastDays": 30,
 

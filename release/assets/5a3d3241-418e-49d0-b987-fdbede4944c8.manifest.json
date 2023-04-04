@@ -46,6 +46,10 @@
         "externalRepo": "",
         "pageTemplate": "default",
         "orgchart_key": {},
+        "orgchart_url": "",
+        "orgchart_param": "aboutus",
+        "accordian_url": "",
+        "accordian_param": "aboutus",
         "broadcastDays": 30,
         "fields": {
           "OrgType": {
@@ -95,7 +99,7 @@
     "scriptResources": {
       "about-us-app-web-part": {
         "type": "path",
-        "path": "about-us-app-web-part_c8f777411bf363e007e7.js"
+        "path": "about-us-app-web-part_a855a1b4990bd42219b7.js"
       },
       "@microsoft/sp-dialog": {
         "type": "component",

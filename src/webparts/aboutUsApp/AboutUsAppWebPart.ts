@@ -51,6 +51,10 @@ export interface IAboutUsAppWebPartProps {
     appMessageIsAlert: boolean;
     pageTemplate: string;
     orgchart_key: Record<string, string>;
+    orgchart_url: string;
+    orgchart_param: string;
+    accordian_url: string;
+    accordian_param: string;
     fields: Record<string, IAboutUsAppFieldOption>;
     ownerGroup: number;
     managerGroup: number;
@@ -204,11 +208,13 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
                         pages[0].groups = pages[0].groups.concat(this.propertyPaneGroups_Page());
                         pages.push(this.propertyPanePage_Permissions());
                         pages.push(this.propertyPanePage_Fields());
+                        pages.push(this.propertyPanePage_OrgChart());
+                        pages.push(this.propertyPanePage_Accordian());
                         break;
                 
-                    case "orgchart":
-                        pages[0].groups = pages[0].groups.concat(this.propertyPaneGroups_OrgChart()); 
-                        break;
+                    // case "orgchart":
+                    //     pages[0].groups = pages[0].groups.concat(this.propertyPaneGroups_OrgChart()); 
+                    //     break;
                 
                     case "accordian":
                 
@@ -777,43 +783,86 @@ export default class AboutUsAppWebPart extends BaseClientSideWebPart<IAboutUsApp
         };
     }
 
-    /** PropertyPane Groups
-     * @returns PropertyPane groups array.
+    /** PropertyPane Page
+     * @returns PropertyPane page and fields.
      */
-    private propertyPaneGroups_OrgChart(): (IPropertyPaneGroup | IPropertyPaneConditionalGroup)[] {
-        const group_Colors = {
-            groupName: "Org-Chart Color Meanings:",
+    private propertyPanePage_OrgChart(): IPropertyPanePage {
+        // create property pane page
+        const page = {
+            header: {
+                description: "Org-Chart web part settings."
+            },
+            groups: []
+        };
+
+        // create property pane group for org chart settings
+        const group_link = {
+            groupName: "Org-Chart Link",
             groupFields: []
-        },
-            fieldColors = this.populateOrgChartColorOptions();
+        };
 
-        // Org Chart: show if display type is OrgChart & content list was ensured
-        if (fieldColors.length > 0) {
-            // label: Key
-            group_Colors.groupFields.push(
-                PropertyPaneLabel("lblOrgChartColor", {
-                    text: "Legend:"
-                })
-            );
+        // textbox: Org Chart URL
+        group_link.groupFields.push(
+            PropertyPaneTextField("orgchart_url", {
+                label: "Org-Chart URL",
+                description: "URL of the Org-Chart web part to display the organizational structure."
+            })
+        );
 
-            // create each color label & field
-            fieldColors.forEach( color => {
+        // textbox: Org Chart Param
+        group_link.groupFields.push(
+            PropertyPaneTextField("orgchart_param", {
+                label: "Org-Chart Param",
+                description: "Org-Chart web part URL parameter name to pass the selected item."
+            })
+        );
 
-                // ensure the key exists in web part properties
-                if (!(color.key in this.properties.orgchart_key)) {
-                    this.properties.orgchart_key[color.key] = "";
-                }
-                // textbox: [COLOR-KEY]
-                group_Colors.groupFields.push(
-                    PropertyPaneTextField(`orgchart_key.${ color.key }`, {
-                        label: `${ color.text }:`
-                    })
-                );
-            });
+        // add group to page
+        page.groups.push(group_link);
 
-        }
+        // return page
+        return page;
+    }
 
-        return [group_Colors];
+    /** PropertyPane Page
+     * @returns PropertyPane page and fields.
+     */
+    private propertyPanePage_Accordian(): IPropertyPanePage {
+        // create property pane page
+        const page = {
+            header: {
+                description: "Accordian web part settings."
+            },
+            groups: []
+        };
+
+        // create property pane group for accordian settings
+        const group_link = {
+            groupName: "Accordian Link",
+            groupFields: []
+        };
+
+        // textbox: Accordian URL
+        group_link.groupFields.push(
+            PropertyPaneTextField("accordian_url", {
+                label: "Explorer View URL",
+                description: "URL of the Explorer View web part to view the About-Us structure."
+            })
+        );
+
+        // textbox: Accordian Param
+        group_link.groupFields.push(
+            PropertyPaneTextField("accordian_param", {
+                label: "Explorer View Param",
+                description: "Explorer View web part URL parameter name to pass the selected item."
+            })
+        );
+
+        // add group to page
+        page.groups.push(group_link);
+
+        // return page
+        return page;
     }
 
     /** PropertyPane Groups
